@@ -46,6 +46,7 @@ export function AppWindow({ appId, title, onClose, children, width = "600px", he
 
 export function DocsApp({ onClose }: { onClose: () => void }) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [message, setMessage] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
@@ -82,8 +83,12 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest('DELETE', `/api/documents/${id}`);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (deletedId) => {
+      if (selectedDoc?.id === deletedId) {
+        setSelectedDoc(null);
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
     },
   });
@@ -141,9 +146,9 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <AppWindow appId="docs" title="Docs" onClose={onClose} width="900px" height="600px">
+    <AppWindow appId="docs" title="Docs" onClose={onClose} width="1000px" height="650px">
       <div className="flex h-full relative">
-        <div className={cn("flex flex-col bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200/50 dark:border-gray-700/50 transition-all", chatOpen ? "w-1/3" : "w-full")}>
+        <div className="w-64 flex-shrink-0 flex flex-col bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200/50 dark:border-gray-700/50">
           <div className="p-3 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center gap-2">
             <Button
               size="sm"
@@ -153,7 +158,7 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
               data-testid="button-upload-pdf"
             >
               {uploadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
-              Upload PDF
+              Upload
             </Button>
             <input
               ref={fileInputRef}
@@ -174,46 +179,73 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
             </Button>
           </div>
 
-          <ScrollArea className="flex-1 p-3">
+          <ScrollArea className="flex-1 p-2">
             {docsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
               </div>
             ) : documents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                <FileText className="w-12 h-12 mb-3 opacity-50" />
-                <p className="text-sm">No documents yet</p>
-                <p className="text-xs mt-1">Upload a PDF to get started</p>
+              <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                <FileText className="w-10 h-10 mb-2 opacity-50" />
+                <p className="text-xs">No documents</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50"
+                    onClick={() => setSelectedDoc(doc)}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
+                      selectedDoc?.id === doc.id 
+                        ? "bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800" 
+                        : "bg-white dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50 hover:bg-gray-100 dark:hover:bg-gray-600/50"
+                    )}
                     data-testid={`doc-item-${doc.id}`}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-5 h-5 text-blue-500" />
+                    <div className="w-8 h-8 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-blue-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{doc.name}</p>
-                      <p className="text-xs text-gray-400 truncate">{doc.originalName}</p>
+                      <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{doc.name}</p>
                     </div>
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => deleteMutation.mutate(doc.id)}
+                      className="w-6 h-6"
+                      onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(doc.id); }}
                       disabled={deleteMutation.isPending}
                       data-testid={`button-delete-doc-${doc.id}`}
                     >
-                      <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                      <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-500" />
                     </Button>
                   </div>
                 ))}
               </div>
             )}
           </ScrollArea>
+        </div>
+
+        <div className={cn("flex-1 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200/50 dark:border-gray-700/50", chatOpen && "flex-1")}>
+          {selectedDoc ? (
+            <>
+              <div className="p-3 border-b border-gray-200/50 dark:border-gray-700/50">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{selectedDoc.name}</h3>
+                <p className="text-xs text-gray-400">{selectedDoc.originalName}</p>
+              </div>
+              <ScrollArea className="flex-1 p-4">
+                <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
+                  {selectedDoc.content}
+                </pre>
+              </ScrollArea>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-6">
+              <FileText className="w-16 h-16 mb-4 opacity-30" />
+              <p className="text-sm">Select a document to view</p>
+              <p className="text-xs mt-1">or upload a new PDF</p>
+            </div>
+          )}
         </div>
 
         {chatOpen && (
