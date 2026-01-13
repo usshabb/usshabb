@@ -18,6 +18,8 @@ export const documents = pgTable("documents", {
   name: text("name").notNull(),
   originalName: text("original_name").notNull(),
   content: text("content").notNull(),
+  fileUrl: text("file_url"),
+  fileId: text("file_id"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

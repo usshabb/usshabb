@@ -7,6 +7,7 @@ import { z } from "zod";
 import multer from "multer";
 import * as pdfParse from "pdf-parse";
 import OpenAI from "openai";
+import { uploadToImageKit, deleteFromImageKit } from "./imagekit";
 
 const pdf = (pdfParse as any).default || pdfParse;
 
@@ -126,6 +127,18 @@ export async function registerRoutes(
       const pdfData = await pdf(req.file.buffer);
       const content = pdfData.text;
       
+      // Upload to ImageKit if configured
+      let fileUrl: string | null = null;
+      let fileId: string | null = null;
+      
+      try {
+        const imagekitResult = await uploadToImageKit(req.file.buffer, req.file.originalname);
+        fileUrl = imagekitResult.url;
+        fileId = imagekitResult.fileId;
+      } catch (imagekitErr: any) {
+        console.log("ImageKit upload skipped:", imagekitErr.message);
+      }
+      
       // Generate AI name for the document
       const openai = getOpenAIClient();
       const nameResponse = await openai.chat.completions.create({
@@ -149,6 +162,8 @@ export async function registerRoutes(
         name: aiName,
         originalName: req.file.originalname,
         content: content,
+        fileUrl: fileUrl,
+        fileId: fileId,
       });
       
       res.status(201).json(doc);
@@ -161,6 +176,17 @@ export async function registerRoutes(
   // Delete document
   app.delete(api.documents.delete.path, async (req, res) => {
     const id = Number(req.params.id);
+    
+    // Get document first to check for ImageKit file
+    const doc = await storage.getDocument(id);
+    if (doc?.fileId) {
+      try {
+        await deleteFromImageKit(doc.fileId);
+      } catch (err) {
+        console.log("Failed to delete from ImageKit:", err);
+      }
+    }
+    
     await storage.deleteDocument(id);
     res.status(204).end();
   });
