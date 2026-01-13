@@ -5,8 +5,10 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import multer from "multer";
-import pdf from "pdf-parse";
+import * as pdfParse from "pdf-parse";
 import OpenAI from "openai";
+
+const pdf = (pdfParse as any).default || pdfParse;
 
 const upload = multer({ storage: multer.memoryStorage() });
 
