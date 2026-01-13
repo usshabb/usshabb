@@ -7,12 +7,13 @@ import { z } from "zod";
 import multer from "multer";
 import OpenAI from "openai";
 import { uploadToImageKit, deleteFromImageKit } from "./imagekit";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const parsePDFModule = require("./pdf-parser.cjs");
 
 async function parsePDF(buffer: Buffer): Promise<string> {
-  const pdfParseModule = await import("pdf-parse") as any;
-  const pdf = pdfParseModule.default || pdfParseModule;
-  const data = await pdf(buffer);
-  return data.text;
+  return parsePDFModule(buffer);
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
