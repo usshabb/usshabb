@@ -5,11 +5,12 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import multer from "multer";
-import * as pdfParse from "pdf-parse";
 import OpenAI from "openai";
 import { uploadToImageKit, deleteFromImageKit } from "./imagekit";
+import { createRequire } from "module";
 
-const pdf = (pdfParse as any).default || pdfParse;
+const require = createRequire(import.meta.url);
+const pdf = require("pdf-parse");
 
 const upload = multer({ storage: multer.memoryStorage() });
 
