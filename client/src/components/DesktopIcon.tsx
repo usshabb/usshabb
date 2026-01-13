@@ -9,15 +9,21 @@ interface DesktopIconProps {
   y?: number;
   selected?: boolean;
   onSelect?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export function DesktopIcon({ id, name, selected, onSelect }: DesktopIconProps) {
+export function DesktopIcon({ id, name, selected, onSelect, onContextMenu }: DesktopIconProps) {
   return (
     <Link href={`/${name}`}>
       <div 
         onClick={(e) => {
-          e.stopPropagation(); // Prevent desktop click
+          e.stopPropagation();
           onSelect?.();
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu?.(e);
         }}
         className={cn(
           "flex flex-col items-center justify-center p-2 rounded w-24 gap-1 cursor-pointer group transition-all duration-200 hover:scale-105 active:scale-95",

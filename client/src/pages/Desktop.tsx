@@ -3,11 +3,12 @@ import { MenuBar } from "@/components/MenuBar";
 import { DesktopIcon } from "@/components/DesktopIcon";
 import { ContextMenu } from "@/components/ContextMenu";
 import { CreateFolderDialog } from "@/components/CreateFolderDialog";
-import { useFolders } from "@/hooks/use-folders";
+import { useFolders, useDeleteFolder } from "@/hooks/use-folders";
 import { Loader2 } from "lucide-react";
 
 export default function Desktop() {
   const { data: folders, isLoading } = useFolders();
+  const deleteFolder = useDeleteFolder();
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   
   // Context Menu State
@@ -16,7 +17,8 @@ export default function Desktop() {
     x: number;
     y: number;
     targetType: 'desktop' | 'folder';
-  }>({ visible: false, x: 0, y: 0, targetType: 'desktop' });
+    folderId: number | null;
+  }>({ visible: false, x: 0, y: 0, targetType: 'desktop', folderId: null });
 
   // Dialog State
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -28,7 +30,24 @@ export default function Desktop() {
       x: e.clientX,
       y: e.clientY,
       targetType: 'desktop',
+      folderId: null,
     });
+  };
+
+  const handleFolderContextMenu = (e: React.MouseEvent, folderId: number) => {
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetType: 'folder',
+      folderId,
+    });
+  };
+
+  const handleDeleteFolder = () => {
+    if (contextMenu.folderId) {
+      deleteFolder.mutate(contextMenu.folderId);
+    }
   };
 
   const handleDesktopClick = () => {
@@ -43,7 +62,6 @@ export default function Desktop() {
       onClick={handleDesktopClick}
     >
       {/* Abstract Gradient Wallpaper */}
-      {/* Unsplash abstract gradient background */}
       <div 
         className="absolute inset-0 bg-cover bg-center -z-10 transform scale-105"
         style={{
@@ -70,6 +88,7 @@ export default function Desktop() {
               name={folder.name}
               selected={selectedFolderId === folder.id}
               onSelect={() => setSelectedFolderId(folder.id)}
+              onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
             />
           ))
         )}
@@ -82,6 +101,7 @@ export default function Desktop() {
         targetType={contextMenu.targetType}
         onClose={() => setContextMenu(prev => ({ ...prev, visible: false }))}
         onNewFolder={() => setIsCreateDialogOpen(true)}
+        onDelete={handleDeleteFolder}
       />
 
       <CreateFolderDialog 
