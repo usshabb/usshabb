@@ -3,6 +3,8 @@ import { MenuBar } from "@/components/MenuBar";
 import { DesktopIcon } from "@/components/DesktopIcon";
 import { ContextMenu } from "@/components/ContextMenu";
 import { CreateFolderDialog } from "@/components/CreateFolderDialog";
+import { Dock } from "@/components/Dock";
+import { DocsApp, NotesApp } from "@/components/AppWindow";
 import { useFolders, useDeleteFolder } from "@/hooks/use-folders";
 import { Loader2 } from "lucide-react";
 
@@ -10,6 +12,9 @@ export default function Desktop() {
   const { data: folders, isLoading } = useFolders();
   const deleteFolder = useDeleteFolder();
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  
+  // Open Apps State
+  const [openApps, setOpenApps] = useState<Set<string>>(new Set());
   
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -22,6 +27,18 @@ export default function Desktop() {
 
   // Dialog State
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  const handleOpenApp = (appId: string) => {
+    setOpenApps(prev => new Set(prev).add(appId));
+  };
+
+  const handleCloseApp = (appId: string) => {
+    setOpenApps(prev => {
+      const next = new Set(prev);
+      next.delete(appId);
+      return next;
+    });
+  };
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -108,6 +125,13 @@ export default function Desktop() {
         open={isCreateDialogOpen} 
         onOpenChange={setIsCreateDialogOpen} 
       />
+
+      {/* App Windows */}
+      {openApps.has("docs") && <DocsApp onClose={() => handleCloseApp("docs")} />}
+      {openApps.has("notes") && <NotesApp onClose={() => handleCloseApp("notes")} />}
+
+      {/* Dock */}
+      <Dock onOpenApp={handleOpenApp} />
     </div>
   );
 }
