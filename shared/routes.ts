@@ -98,6 +98,18 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    rename: {
+      method: 'PATCH' as const,
+      path: '/api/documents/:id/rename',
+      input: z.object({
+        name: z.string().min(1).max(100),
+      }),
+      responses: {
+        200: z.custom<typeof documents.$inferSelect>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
   },
   chat: {
     messages: {

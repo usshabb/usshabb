@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { FileText, Upload, Trash2, Send, AtSign, MessageSquare, Loader2 } from "lucide-react";
+import { FileText, Upload, Trash2, Send, AtSign, MessageSquare, Loader2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,6 +50,8 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
   const [message, setMessage] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
+  const [editingDocId, setEditingDocId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -103,6 +105,38 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
       setSelectedDocs([]);
     },
   });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }): Promise<Document> => {
+      const res = await apiRequest('PATCH', `/api/documents/${id}/rename`, { name });
+      return res.json();
+    },
+    onSuccess: (updatedDoc: Document) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
+      if (selectedDoc?.id === updatedDoc.id) {
+        setSelectedDoc(updatedDoc);
+      }
+      setEditingDocId(null);
+      setEditingName("");
+    },
+  });
+
+  const startRename = (doc: Document, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingDocId(doc.id);
+    setEditingName(doc.name);
+  };
+
+  const cancelRename = () => {
+    setEditingDocId(null);
+    setEditingName("");
+  };
+
+  const submitRename = (id: number) => {
+    if (editingName.trim()) {
+      renameMutation.mutate({ id, name: editingName.trim() });
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -194,7 +228,7 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
                 {documents.map((doc) => (
                   <div
                     key={doc.id}
-                    onClick={() => setSelectedDoc(doc)}
+                    onClick={() => editingDocId !== doc.id && setSelectedDoc(doc)}
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
                       selectedDoc?.id === doc.id 
@@ -207,18 +241,65 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
                       <FileText className="w-4 h-4 text-blue-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{doc.name}</p>
+                      {editingDocId === doc.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') submitRename(doc.id);
+                              if (e.key === 'Escape') cancelRename();
+                            }}
+                            className="h-6 text-xs px-1"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid={`input-rename-doc-${doc.id}`}
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="w-5 h-5"
+                            onClick={(e) => { e.stopPropagation(); submitRename(doc.id); }}
+                            disabled={renameMutation.isPending}
+                          >
+                            <Check className="w-3 h-3 text-green-500" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="w-5 h-5"
+                            onClick={(e) => { e.stopPropagation(); cancelRename(); }}
+                          >
+                            <X className="w-3 h-3 text-gray-400" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{doc.name}</p>
+                      )}
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="w-6 h-6"
-                      onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(doc.id); }}
-                      disabled={deleteMutation.isPending}
-                      data-testid={`button-delete-doc-${doc.id}`}
-                    >
-                      <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-500" />
-                    </Button>
+                    {editingDocId !== doc.id && (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="w-6 h-6"
+                          onClick={(e) => startRename(doc, e)}
+                          data-testid={`button-rename-doc-${doc.id}`}
+                        >
+                          <Pencil className="w-3 h-3 text-gray-400 hover:text-blue-500" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="w-6 h-6"
+                          onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(doc.id); }}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-doc-${doc.id}`}
+                        >
+                          <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-500" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

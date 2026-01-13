@@ -7,10 +7,13 @@ import { z } from "zod";
 import multer from "multer";
 import OpenAI from "openai";
 import { uploadToImageKit, deleteFromImageKit } from "./imagekit";
-import { createRequire } from "module";
 
-const require = createRequire(import.meta.url);
-const pdf = require("pdf-parse");
+async function parsePDF(buffer: Buffer): Promise<string> {
+  const pdfParseModule = await import("pdf-parse") as any;
+  const pdf = pdfParseModule.default || pdfParseModule;
+  const data = await pdf(buffer);
+  return data.text;
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -125,8 +128,7 @@ export async function registerRoutes(
       }
       
       // Parse PDF content
-      const pdfData = await pdf(req.file.buffer);
-      const content = pdfData.text;
+      const content = await parsePDF(req.file.buffer);
       
       // Upload to ImageKit if configured
       let fileUrl: string | null = null;
@@ -171,6 +173,21 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error uploading document:", err);
       res.status(500).json({ message: "Failed to process document" });
+    }
+  });
+
+  // Rename document
+  app.patch(api.documents.rename.path, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const input = api.documents.rename.input.parse(req.body);
+      const updated = await storage.updateDocument(id, { name: input.name });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(404).json({ message: "Document not found" });
     }
   });
 

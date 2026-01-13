@@ -14,6 +14,7 @@ export interface IStorage {
   getDocument(id: number): Promise<Document | undefined>;
   getDocumentsByIds(ids: number[]): Promise<Document[]>;
   createDocument(doc: InsertDocument): Promise<Document>;
+  updateDocument(id: number, updates: { name?: string }): Promise<Document>;
   deleteDocument(id: number): Promise<void>;
   
   getDocMessages(): Promise<DocMessage[]>;
@@ -71,6 +72,20 @@ export class DatabaseStorage implements IStorage {
   async createDocument(doc: InsertDocument): Promise<Document> {
     const [newDoc] = await db.insert(documents).values(doc).returning();
     return newDoc;
+  }
+
+  async updateDocument(id: number, updates: { name?: string }): Promise<Document> {
+    const [updated] = await db
+      .update(documents)
+      .set(updates)
+      .where(eq(documents.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error(`Document with id ${id} not found`);
+    }
+    
+    return updated;
   }
 
   async deleteDocument(id: number): Promise<void> {
