@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertFolderSchema, folders } from './schema';
+import { insertFolderSchema, folders, documents, docMessages } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -63,6 +63,63 @@ export const api = {
       responses: {
         204: z.void(),
         404: errorSchemas.notFound,
+      },
+    },
+  },
+  documents: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/documents',
+      responses: {
+        200: z.array(z.custom<typeof documents.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/documents/:id',
+      responses: {
+        200: z.custom<typeof documents.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    upload: {
+      method: 'POST' as const,
+      path: '/api/documents/upload',
+      responses: {
+        201: z.custom<typeof documents.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/documents/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  chat: {
+    messages: {
+      method: 'GET' as const,
+      path: '/api/chat/messages',
+      responses: {
+        200: z.array(z.custom<typeof docMessages.$inferSelect>()),
+      },
+    },
+    send: {
+      method: 'POST' as const,
+      path: '/api/chat/send',
+      input: z.object({
+        content: z.string(),
+        referencedDocIds: z.array(z.number()).optional(),
+      }),
+      responses: {
+        200: z.object({
+          userMessage: z.custom<typeof docMessages.$inferSelect>(),
+          aiMessage: z.custom<typeof docMessages.$inferSelect>(),
+        }),
+        400: errorSchemas.validation,
       },
     },
   },

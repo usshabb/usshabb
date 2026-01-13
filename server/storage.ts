@@ -1,7 +1,7 @@
 
 import { db } from "./db";
-import { folders, type Folder, type InsertFolder, type UpdateFolderRequest } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { folders, documents, docMessages, type Folder, type InsertFolder, type UpdateFolderRequest, type Document, type InsertDocument, type DocMessage, type InsertDocMessage } from "@shared/schema";
+import { eq, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
   getFolders(): Promise<Folder[]>;
@@ -9,6 +9,15 @@ export interface IStorage {
   createFolder(folder: InsertFolder): Promise<Folder>;
   updateFolder(id: number, updates: UpdateFolderRequest): Promise<Folder>;
   deleteFolder(id: number): Promise<void>;
+  
+  getDocuments(): Promise<Document[]>;
+  getDocument(id: number): Promise<Document | undefined>;
+  getDocumentsByIds(ids: number[]): Promise<Document[]>;
+  createDocument(doc: InsertDocument): Promise<Document>;
+  deleteDocument(id: number): Promise<void>;
+  
+  getDocMessages(): Promise<DocMessage[]>;
+  createDocMessage(msg: InsertDocMessage): Promise<DocMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -43,6 +52,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFolder(id: number): Promise<void> {
     await db.delete(folders).where(eq(folders.id, id));
+  }
+
+  async getDocuments(): Promise<Document[]> {
+    return await db.select().from(documents).orderBy(desc(documents.createdAt));
+  }
+
+  async getDocument(id: number): Promise<Document | undefined> {
+    const [doc] = await db.select().from(documents).where(eq(documents.id, id));
+    return doc;
+  }
+
+  async getDocumentsByIds(ids: number[]): Promise<Document[]> {
+    if (ids.length === 0) return [];
+    return await db.select().from(documents).where(inArray(documents.id, ids));
+  }
+
+  async createDocument(doc: InsertDocument): Promise<Document> {
+    const [newDoc] = await db.insert(documents).values(doc).returning();
+    return newDoc;
+  }
+
+  async deleteDocument(id: number): Promise<void> {
+    await db.delete(documents).where(eq(documents.id, id));
+  }
+
+  async getDocMessages(): Promise<DocMessage[]> {
+    return await db.select().from(docMessages).orderBy(docMessages.createdAt);
+  }
+
+  async createDocMessage(msg: InsertDocMessage): Promise<DocMessage> {
+    const [newMsg] = await db.insert(docMessages).values(msg).returning();
+    return newMsg;
   }
 }
 
