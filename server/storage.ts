@@ -1,38 +1,49 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { folders, type Folder, type InsertFolder, type UpdateFolderRequest } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getFolders(): Promise<Folder[]>;
+  getFolder(id: number): Promise<Folder | undefined>;
+  createFolder(folder: InsertFolder): Promise<Folder>;
+  updateFolder(id: number, updates: UpdateFolderRequest): Promise<Folder>;
+  deleteFolder(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getFolders(): Promise<Folder[]> {
+    // Sort by ID for stability, or could add an 'order' field later
+    return await db.select().from(folders).orderBy(folders.id);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getFolder(id: number): Promise<Folder | undefined> {
+    const [folder] = await db.select().from(folders).where(eq(folders.id, id));
+    return folder;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createFolder(insertFolder: InsertFolder): Promise<Folder> {
+    const [folder] = await db.insert(folders).values(insertFolder).returning();
+    return folder;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async updateFolder(id: number, updates: UpdateFolderRequest): Promise<Folder> {
+    const [updated] = await db
+      .update(folders)
+      .set(updates)
+      .where(eq(folders.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error(`Folder with id ${id} not found`);
+    }
+    
+    return updated;
+  }
+
+  async deleteFolder(id: number): Promise<void> {
+    await db.delete(folders).where(eq(folders.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
