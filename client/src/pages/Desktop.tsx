@@ -4,25 +4,27 @@ import { DesktopIcon } from "@/components/DesktopIcon";
 import { ContextMenu } from "@/components/ContextMenu";
 import { CreateFolderDialog } from "@/components/CreateFolderDialog";
 import { Dock } from "@/components/Dock";
-import { DocsApp, NotesApp } from "@/components/AppWindow";
-import { useFolders, useDeleteFolder } from "@/hooks/use-folders";
+import { DocsApp, NotesApp, UtilitiesApp } from "@/components/AppWindow";
+import { useFolders, useDeleteFolder, useUpdateFolder } from "@/hooks/use-folders";
 import { Loader2 } from "lucide-react";
 
 export default function Desktop() {
   const { data: folders, isLoading } = useFolders();
   const deleteFolder = useDeleteFolder();
-  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
-  
+  const updateFolder = useUpdateFolder();
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+
   // Open Apps State
   const [openApps, setOpenApps] = useState<Set<string>>(new Set());
-  
+
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     x: number;
     y: number;
     targetType: 'desktop' | 'folder';
-    folderId: number | null;
+    folderId: string | null;
   }>({ visible: false, x: 0, y: 0, targetType: 'desktop', folderId: null });
 
   // Dialog State
@@ -51,7 +53,7 @@ export default function Desktop() {
     });
   };
 
-  const handleFolderContextMenu = (e: React.MouseEvent, folderId: number) => {
+  const handleFolderContextMenu = (e: React.MouseEvent, folderId: string) => {
     setContextMenu({
       visible: true,
       x: e.clientX,
@@ -67,8 +69,33 @@ export default function Desktop() {
     }
   };
 
+  const handleRenameFolder = () => {
+    if (contextMenu.folderId) {
+      setRenamingFolderId(contextMenu.folderId);
+    }
+  };
+
+  const handleRenameSubmit = (folderId: string, newName: string) => {
+    updateFolder.mutate(
+      { id: folderId, name: newName },
+      {
+        onSuccess: () => {
+          setRenamingFolderId(null);
+        },
+        onError: () => {
+          setRenamingFolderId(null);
+        }
+      }
+    );
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingFolderId(null);
+  };
+
   const handleDesktopClick = () => {
     setSelectedFolderId(null);
+    setRenamingFolderId(null);
     setContextMenu(prev => ({ ...prev, visible: false }));
   };
 
@@ -99,25 +126,29 @@ export default function Desktop() {
           </div>
         ) : (
           folders?.map((folder) => (
-            <DesktopIcon 
-              key={folder.id} 
-              id={folder.id} 
+            <DesktopIcon
+              key={folder.id}
+              id={folder.id}
               name={folder.name}
               selected={selectedFolderId === folder.id}
+              isRenaming={renamingFolderId === folder.id}
               onSelect={() => setSelectedFolderId(folder.id)}
               onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
+              onRenameSubmit={(newName) => handleRenameSubmit(folder.id, newName)}
+              onRenameCancel={handleRenameCancel}
             />
           ))
         )}
       </div>
 
-      <ContextMenu 
+      <ContextMenu
         visible={contextMenu.visible}
         x={contextMenu.x}
         y={contextMenu.y}
         targetType={contextMenu.targetType}
         onClose={() => setContextMenu(prev => ({ ...prev, visible: false }))}
         onNewFolder={() => setIsCreateDialogOpen(true)}
+        onRename={handleRenameFolder}
         onDelete={handleDeleteFolder}
       />
 
@@ -129,6 +160,7 @@ export default function Desktop() {
       {/* App Windows */}
       {openApps.has("docs") && <DocsApp onClose={() => handleCloseApp("docs")} />}
       {openApps.has("notes") && <NotesApp onClose={() => handleCloseApp("notes")} />}
+      {openApps.has("utilities") && <UtilitiesApp onClose={() => handleCloseApp("utilities")} />}
 
       {/* Dock */}
       <Dock onOpenApp={handleOpenApp} />

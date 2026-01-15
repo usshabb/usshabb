@@ -19,7 +19,7 @@ export function CreateFolderDialog({ open, onOpenChange }: CreateFolderDialogPro
     if (!name.trim()) return;
 
     mutate(
-      { name },
+      { name, x: 0, y: 0 },
       {
         onSuccess: () => {
           setName("");

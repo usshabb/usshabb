@@ -14,7 +14,7 @@ export function useFolders() {
 }
 
 // GET /api/folders/:id
-export function useFolder(id: number) {
+export function useFolder(id: string) {
   return useQuery({
     queryKey: [api.folders.get.path, id],
     enabled: !!id,
@@ -59,7 +59,7 @@ export function useCreateFolder() {
 export function useUpdateFolder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: number } & FolderUpdateInput) => {
+    mutationFn: async ({ id, ...data }: { id: string } & FolderUpdateInput) => {
       const url = buildUrl(api.folders.update.path, { id });
       const res = await fetch(url, {
         method: api.folders.update.method,
@@ -87,7 +87,7 @@ export function useUpdateFolder() {
 export function useDeleteFolder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const url = buildUrl(api.folders.delete.path, { id });
       const res = await fetch(url, {
         method: api.folders.delete.method,

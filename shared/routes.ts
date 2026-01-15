@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertFolderSchema, folders, documents, docMessages } from './schema';
+import { insertFolderSchema, insertMailingListSchema, type Folder, type Document, type DocMessage, type MailingList } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -27,14 +27,14 @@ export const api = {
       method: 'GET' as const,
       path: '/api/folders',
       responses: {
-        200: z.array(z.custom<typeof folders.$inferSelect>()),
+        200: z.array(z.custom<Folder>()),
       },
     },
     get: {
       method: 'GET' as const,
       path: '/api/folders/:id',
       responses: {
-        200: z.custom<typeof folders.$inferSelect>(),
+        200: z.custom<Folder>(),
         404: errorSchemas.notFound,
       },
     },
@@ -43,7 +43,7 @@ export const api = {
       path: '/api/folders',
       input: insertFolderSchema,
       responses: {
-        201: z.custom<typeof folders.$inferSelect>(),
+        201: z.custom<Folder>(),
         400: errorSchemas.validation,
       },
     },
@@ -52,7 +52,7 @@ export const api = {
       path: '/api/folders/:id',
       input: insertFolderSchema.partial(),
       responses: {
-        200: z.custom<typeof folders.$inferSelect>(),
+        200: z.custom<Folder>(),
         400: errorSchemas.validation,
         404: errorSchemas.notFound,
       },
@@ -71,14 +71,14 @@ export const api = {
       method: 'GET' as const,
       path: '/api/documents',
       responses: {
-        200: z.array(z.custom<typeof documents.$inferSelect>()),
+        200: z.array(z.custom<Document>()),
       },
     },
     get: {
       method: 'GET' as const,
       path: '/api/documents/:id',
       responses: {
-        200: z.custom<typeof documents.$inferSelect>(),
+        200: z.custom<Document>(),
         404: errorSchemas.notFound,
       },
     },
@@ -86,7 +86,7 @@ export const api = {
       method: 'POST' as const,
       path: '/api/documents/upload',
       responses: {
-        201: z.custom<typeof documents.$inferSelect>(),
+        201: z.custom<Document>(),
         400: errorSchemas.validation,
       },
     },
@@ -105,7 +105,7 @@ export const api = {
         name: z.string().min(1).max(100),
       }),
       responses: {
-        200: z.custom<typeof documents.$inferSelect>(),
+        200: z.custom<Document>(),
         400: errorSchemas.validation,
         404: errorSchemas.notFound,
       },
@@ -116,7 +116,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/chat/messages',
       responses: {
-        200: z.array(z.custom<typeof docMessages.$inferSelect>()),
+        200: z.array(z.custom<DocMessage>()),
       },
     },
     send: {
@@ -124,14 +124,58 @@ export const api = {
       path: '/api/chat/send',
       input: z.object({
         content: z.string(),
-        referencedDocIds: z.array(z.number()).optional(),
+        referencedDocIds: z.array(z.string()).optional(),
       }),
       responses: {
         200: z.object({
-          userMessage: z.custom<typeof docMessages.$inferSelect>(),
-          aiMessage: z.custom<typeof docMessages.$inferSelect>(),
+          userMessage: z.custom<DocMessage>(),
+          aiMessage: z.custom<DocMessage>(),
         }),
         400: errorSchemas.validation,
+      },
+    },
+  },
+  mailingLists: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/mailing-lists',
+      responses: {
+        200: z.array(z.custom<MailingList>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/mailing-lists/:id',
+      responses: {
+        200: z.custom<MailingList>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/mailing-lists',
+      input: insertMailingListSchema,
+      responses: {
+        201: z.custom<MailingList>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/mailing-lists/:id',
+      input: insertMailingListSchema.partial(),
+      responses: {
+        200: z.custom<MailingList>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/mailing-lists/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

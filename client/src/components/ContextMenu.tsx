@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FolderPlus, Trash2 } from "lucide-react";
+import { FolderPlus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ContextMenuProps {
@@ -8,11 +8,12 @@ interface ContextMenuProps {
   visible: boolean;
   onClose: () => void;
   onNewFolder: () => void;
+  onRename?: () => void; // Optional rename action if a folder was right-clicked
   onDelete?: () => void; // Optional delete action if an item was right-clicked
   targetType?: 'desktop' | 'folder';
 }
 
-export function ContextMenu({ x, y, visible, onClose, onNewFolder, onDelete, targetType = 'desktop' }: ContextMenuProps) {
+export function ContextMenu({ x, y, visible, onClose, onNewFolder, onRename, onDelete, targetType = 'desktop' }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,19 +49,33 @@ export function ContextMenu({ x, y, visible, onClose, onNewFolder, onDelete, tar
           <span>New Folder</span>
         </button>
 
-        {targetType === 'folder' && onDelete && (
+        {targetType === 'folder' && (onRename || onDelete) && (
           <>
             <div className="h-px bg-gray-200/50 my-1 mx-2" />
-            <button
-              onClick={() => {
-                onDelete();
-                onClose();
-              }}
-              className="w-full text-left px-3 py-1.5 text-sm rounded-md hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2 text-red-600"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Delete</span>
-            </button>
+            {onRename && (
+              <button
+                onClick={() => {
+                  onRename();
+                  onClose();
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm rounded-md hover:bg-blue-500 hover:text-white transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                <span>Rename</span>
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => {
+                  onDelete();
+                  onClose();
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm rounded-md hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2 text-red-600"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+            )}
           </>
         )}
       </div>

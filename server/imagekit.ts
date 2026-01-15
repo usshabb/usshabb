@@ -28,9 +28,12 @@ export async function uploadToImageKit(
   folder: string = "/docs"
 ): Promise<{ url: string; fileId: string }> {
   const imagekit = getImageKit();
-  
+
+  // Convert buffer to base64 string for ImageKit
+  const base64File = fileBuffer.toString('base64');
+
   const result = await imagekit.upload({
-    file: fileBuffer,
+    file: base64File,
     fileName: fileName,
     folder: folder,
     useUniqueFileName: true,
