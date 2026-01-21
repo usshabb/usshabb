@@ -971,6 +971,74 @@ export async function registerRoutes(
     }
   });
 
+  // === VAULT ROUTES ===
+  app.get(api.vault.list.path, async (req, res) => {
+    try {
+      const items = await storage.getVaultItems();
+      res.json(items);
+    } catch (err) {
+      console.error("Error fetching vault items:", err);
+      res.status(500).json({ message: "Failed to fetch vault items" });
+    }
+  });
+
+  app.get(api.vault.get.path, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.getVaultItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Vault item not found" });
+      }
+      res.json(item);
+    } catch (err) {
+      console.error("Error fetching vault item:", err);
+      res.status(500).json({ message: "Failed to fetch vault item" });
+    }
+  });
+
+  app.post(api.vault.create.path, async (req, res) => {
+    try {
+      const input = api.vault.create.input.parse(req.body);
+      const item = await storage.createVaultItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      console.error("Error creating vault item:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to create vault item" });
+    }
+  });
+
+  app.put(api.vault.update.path, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const input = api.vault.update.input.parse(req.body);
+      const item = await storage.updateVaultItem(id, input);
+      res.json(item);
+    } catch (err) {
+      console.error("Error updating vault item:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      if (err instanceof Error && err.message.includes("not found")) {
+        return res.status(404).json({ message: "Vault item not found" });
+      }
+      res.status(500).json({ message: "Failed to update vault item" });
+    }
+  });
+
+  app.delete(api.vault.delete.path, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteVaultItem(id);
+      res.status(204).send();
+    } catch (err) {
+      console.error("Error deleting vault item:", err);
+      res.status(500).json({ message: "Failed to delete vault item" });
+    }
+  });
+
   // === CLIPPY ASSISTANT ===
   app.post(api.clippy.ask.path, async (req, res) => {
     try {

@@ -10,6 +10,7 @@ export { ConversationModel, type IConversation } from "./models/conversation.mod
 export { MessageModel, type IMessage } from "./models/message.model";
 export { default as MailingListModel, type IMailingList } from "./models/mailingList.model";
 export { ContextModel, type IContext } from "./models/context.model";
+export { VaultItemModel, type IVaultItem } from "./models/vaultItem.model";
 
 // Zod schemas for validation (replacing drizzle-zod)
 export const insertFolderSchema = z.object({
@@ -164,6 +165,32 @@ export type Context = {
 };
 
 export type InsertContext = z.infer<typeof insertContextSchema>;
+
+// Vault schemas
+export const insertVaultItemSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  type: z.enum(["password", "apikey", "value"], {
+    errorMap: () => ({ message: "Type must be password, apikey, or value" }),
+  }),
+  username: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
+  apiKey: z.string().nullable().optional(),
+  value: z.string().nullable().optional(),
+});
+
+export type VaultItem = {
+  id: string;
+  name: string;
+  type: "password" | "apikey" | "value";
+  username?: string | null;
+  password?: string | null;
+  apiKey?: string | null;
+  value?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InsertVaultItem = z.infer<typeof insertVaultItemSchema>;
 
 // Request types
 export type CreateFolderRequest = InsertFolder;

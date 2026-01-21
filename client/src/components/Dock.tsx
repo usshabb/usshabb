@@ -1,4 +1,4 @@
-import { FileText, StickyNote, Wrench } from "lucide-react";
+import { FileText, StickyNote, Wrench, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DockProps {
@@ -9,6 +9,7 @@ const apps = [
   { id: "docs", name: "Docs", icon: FileText, color: "text-blue-500" },
   { id: "notes", name: "Notes", icon: StickyNote, color: "text-yellow-500" },
   { id: "utilities", name: "Utilities", icon: Wrench, color: "text-gray-500" },
+  { id: "vault", name: "Vault", icon: Key, color: "text-green-500" },
 ];
 
 export function Dock({ onOpenApp }: DockProps) {

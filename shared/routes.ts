@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertFolderSchema, insertMailingListSchema, insertFolderItemSchema, type Folder, type Document, type DocMessage, type MailingList, type FolderItem } from './schema';
+import { insertFolderSchema, insertMailingListSchema, insertFolderItemSchema, insertVaultItemSchema, type Folder, type Document, type DocMessage, type MailingList, type FolderItem, type VaultItem } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -265,6 +265,50 @@ export const api = {
           message: z.string(),
         }),
         500: errorSchemas.internal,
+      },
+    },
+  },
+  vault: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/vault',
+      responses: {
+        200: z.array(z.custom<VaultItem>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/vault/:id',
+      responses: {
+        200: z.custom<VaultItem>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/vault',
+      input: insertVaultItemSchema,
+      responses: {
+        201: z.custom<VaultItem>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/vault/:id',
+      input: insertVaultItemSchema.partial(),
+      responses: {
+        200: z.custom<VaultItem>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/vault/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

@@ -14,7 +14,7 @@ export function Clippy() {
   const [isVisible, setIsVisible] = useState(true);
   const [messageIndex, setMessageIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState({ x: 20, y: window.innerHeight - 250 });
+  const [position, setPosition] = useState({ x: window.innerWidth - 300, y: window.innerHeight - 250 });
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mode, setMode] = useState<"tips" | "question">("tips"); // tips or question mode
   const [question, setQuestion] = useState("");

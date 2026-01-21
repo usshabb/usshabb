@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { FileText, Upload, Trash2, Send, AtSign, MessageSquare, Loader2, Pencil, Check, X, Mail, Copy, Plus } from "lucide-react";
+import { FileText, Upload, Trash2, Send, AtSign, MessageSquare, Loader2, Pencil, Check, X, Mail, Copy, Plus, Key, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { Document, DocMessage, MailingList } from "@shared/schema";
+import type { Document, DocMessage, MailingList, VaultItem } from "@shared/schema";
 import { useMailingLists, useCreateMailingList, useDeleteMailingList } from "@/hooks/use-mailing-lists";
+import { useVaultItems, useCreateVaultItem, useDeleteVaultItem } from "@/hooks/use-vault";
 
 interface AppWindowProps {
   appId: string;
@@ -797,5 +798,405 @@ function MailingListsUtility() {
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+export function VaultApp({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [type, setType] = useState<"password" | "apikey" | "value">("password");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [value, setValue] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+
+  const { data: vaultItems = [], isLoading } = useVaultItems();
+  const createMutation = useCreateVaultItem();
+  const deleteMutation = useDeleteVaultItem();
+
+  const handleCreate = async () => {
+    if (!name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a name or website",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data: any = {
+      name: name.trim(),
+      type,
+    };
+
+    // Set the appropriate fields based on type
+    if (type === "password") {
+      if (!username.trim() || !password.trim()) {
+        toast({
+          title: "Error",
+          description: "Please provide both username and password",
+          variant: "destructive",
+        });
+        return;
+      }
+      data.username = username.trim();
+      data.password = password.trim();
+    } else if (type === "apikey") {
+      if (!apiKey.trim()) {
+        toast({
+          title: "Error",
+          description: "Please provide an API key",
+          variant: "destructive",
+        });
+        return;
+      }
+      data.apiKey = apiKey.trim();
+    } else if (type === "value") {
+      if (!value.trim()) {
+        toast({
+          title: "Error",
+          description: "Please provide a value",
+          variant: "destructive",
+        });
+        return;
+      }
+      data.value = value.trim();
+    }
+
+    try {
+      await createMutation.mutateAsync(data);
+      toast({
+        title: "Success",
+        description: "Vault item created successfully",
+      });
+      setName("");
+      setUsername("");
+      setPassword("");
+      setApiKey("");
+      setValue("");
+      setShowCreateForm(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create vault item",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: `${label} copied to clipboard`,
+    });
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({
+        title: "Success",
+        description: "Vault item deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete vault item",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <AppWindow appId="vault" title="Vault" onClose={onClose} width="700px" height="600px">
+      <div className="h-full flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Password Vault</h2>
+          <Button
+            size="sm"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            New Item
+          </Button>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
+            {showCreateForm && (
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                    Name / Website
+                  </label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g., Gmail, API Key, etc."
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                    Type
+                  </label>
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value as "password" | "apikey" | "value")}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                  >
+                    <option value="password">Username / Password</option>
+                    <option value="apikey">API Key</option>
+                    <option value="value">Value</option>
+                  </select>
+                </div>
+
+                {type === "password" && (
+                  <>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                        Username
+                      </label>
+                      <Input
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Enter username"
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                        Password
+                      </label>
+                      <Input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password"
+                        className="w-full"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {type === "apikey" && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                      API Key
+                    </label>
+                    <Input
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Enter API key"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+
+                {type === "value" && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                      Value
+                    </label>
+                    <Input
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                      placeholder="Enter value"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleCreate}
+                    disabled={createMutation.isPending}
+                    size="sm"
+                  >
+                    {createMutation.isPending ? "Creating..." : "Create Item"}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setName("");
+                      setUsername("");
+                      setPassword("");
+                      setApiKey("");
+                      setValue("");
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : vaultItems.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Key className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No vault items yet</p>
+                <p className="text-xs mt-1">Click "New Item" to add credentials</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {vaultItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                          <Key className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {item.name}
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                            {item.type === "password" ? "Username / Password" : item.type === "apikey" ? "API Key" : "Value"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(item.id)}
+                        disabled={deleteMutation.isPending}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {item.type === "password" && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Username</p>
+                            <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                              {item.username}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleCopy(item.username!, "Username")}
+                            className="ml-2"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Password</p>
+                            <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                              {visiblePasswords.has(item.id) ? item.password : "••••••••"}
+                            </p>
+                          </div>
+                          <div className="flex gap-1 ml-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => togglePasswordVisibility(item.id)}
+                            >
+                              {visiblePasswords.has(item.id) ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCopy(item.password!, "Password")}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {item.type === "apikey" && (
+                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">API Key</p>
+                          <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                            {visiblePasswords.has(item.id) ? item.apiKey : "••••••••••••••••••••"}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 ml-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => togglePasswordVisibility(item.id)}
+                          >
+                            {visiblePasswords.has(item.id) ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleCopy(item.apiKey!, "API Key")}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {item.type === "value" && (
+                      <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Value</p>
+                          <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                            {item.value}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCopy(item.value!, "Value")}
+                          className="ml-2"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+    </AppWindow>
   );
 }

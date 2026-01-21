@@ -5,6 +5,7 @@ import {
   DocMessageModel,
   MailingListModel,
   ContextModel,
+  VaultItemModel,
   type Folder,
   type InsertFolder,
   type UpdateFolderRequest,
@@ -18,6 +19,8 @@ import {
   type InsertMailingList,
   type Context,
   type InsertContext,
+  type VaultItem,
+  type InsertVaultItem,
 } from "@shared/schema";
 import mongoose from "mongoose";
 
@@ -51,6 +54,12 @@ export interface IStorage {
 
   getContext(): Promise<Context | undefined>;
   createOrUpdateContext(contextData: string): Promise<Context>;
+
+  getVaultItems(): Promise<VaultItem[]>;
+  getVaultItem(id: string): Promise<VaultItem | undefined>;
+  createVaultItem(item: InsertVaultItem): Promise<VaultItem>;
+  updateVaultItem(id: string, updates: Partial<InsertVaultItem>): Promise<VaultItem>;
+  deleteVaultItem(id: string): Promise<void>;
 }
 
 // Helper to convert Mongoose doc to API format
@@ -119,6 +128,20 @@ function toFolderItemResponse(doc: any): FolderItem {
     url: doc.url,
     faviconUrl: doc.faviconUrl,
     content: doc.content,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toVaultItemResponse(doc: any): VaultItem {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    type: doc.type,
+    username: doc.username,
+    password: doc.password,
+    apiKey: doc.apiKey,
+    value: doc.value,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -342,6 +365,45 @@ export class DatabaseStorage implements IStorage {
       const newContext = await ContextModel.create({ contextData });
       return toContextResponse(newContext);
     }
+  }
+
+  async getVaultItems(): Promise<VaultItem[]> {
+    const items = await VaultItemModel.find().sort({ createdAt: -1 }).lean();
+    return items.map(toVaultItemResponse);
+  }
+
+  async getVaultItem(id: string): Promise<VaultItem | undefined> {
+    if (!mongoose.Types.ObjectId.isValid(id)) return undefined;
+    const item = await VaultItemModel.findById(id).lean();
+    return item ? toVaultItemResponse(item) : undefined;
+  }
+
+  async createVaultItem(item: InsertVaultItem): Promise<VaultItem> {
+    const newItem = await VaultItemModel.create(item);
+    return toVaultItemResponse(newItem);
+  }
+
+  async updateVaultItem(id: string, updates: Partial<InsertVaultItem>): Promise<VaultItem> {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new Error(`Invalid vault item id: ${id}`);
+    }
+
+    const updated = await VaultItemModel.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updated) {
+      throw new Error(`Vault item with id ${id} not found`);
+    }
+
+    return toVaultItemResponse(updated);
+  }
+
+  async deleteVaultItem(id: string): Promise<void> {
+    if (!mongoose.Types.ObjectId.isValid(id)) return;
+    await VaultItemModel.findByIdAndDelete(id);
   }
 }
 

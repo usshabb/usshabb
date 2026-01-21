@@ -4,7 +4,7 @@ import { DesktopIcon } from "@/components/DesktopIcon";
 import { ContextMenu } from "@/components/ContextMenu";
 import { CreateFolderDialog } from "@/components/CreateFolderDialog";
 import { Dock } from "@/components/Dock";
-import { DocsApp, NotesApp, UtilitiesApp } from "@/components/AppWindow";
+import { DocsApp, NotesApp, UtilitiesApp, VaultApp } from "@/components/AppWindow";
 import { Clippy } from "@/components/Clippy";
 import { useFolders, useDeleteFolder, useUpdateFolder } from "@/hooks/use-folders";
 import { Loader2 } from "lucide-react";
@@ -152,6 +152,7 @@ export default function Desktop({ onLogout }: { onLogout: () => void }) {
       {openApps.has("docs") && <DocsApp onClose={() => handleCloseApp("docs")} />}
       {openApps.has("notes") && <NotesApp onClose={() => handleCloseApp("notes")} />}
       {openApps.has("utilities") && <UtilitiesApp onClose={() => handleCloseApp("utilities")} />}
+      {openApps.has("vault") && <VaultApp onClose={() => handleCloseApp("vault")} />}
 
       {/* Clippy Assistant */}
       <Clippy />
