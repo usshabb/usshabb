@@ -5,10 +5,11 @@ import { ContextMenu } from "@/components/ContextMenu";
 import { CreateFolderDialog } from "@/components/CreateFolderDialog";
 import { Dock } from "@/components/Dock";
 import { DocsApp, NotesApp, UtilitiesApp } from "@/components/AppWindow";
+import { Clippy } from "@/components/Clippy";
 import { useFolders, useDeleteFolder, useUpdateFolder } from "@/hooks/use-folders";
 import { Loader2 } from "lucide-react";
 
-export default function Desktop() {
+export default function Desktop({ onLogout }: { onLogout: () => void }) {
   const { data: folders, isLoading } = useFolders();
   const deleteFolder = useDeleteFolder();
   const updateFolder = useUpdateFolder();
@@ -100,23 +101,13 @@ export default function Desktop() {
   };
 
   return (
-    <div 
-      className="h-screen w-screen overflow-hidden relative select-none"
+    <div
+      className="h-screen w-screen overflow-hidden relative select-none win95-desktop"
       onContextMenu={handleContextMenu}
       onClick={handleDesktopClick}
     >
-      {/* Abstract Gradient Wallpaper */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center -z-10 transform scale-105"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070&auto=format&fit=crop')`
-        }}
-      />
-      
-      {/* Overlay to ensure text readability */}
-      <div className="absolute inset-0 bg-black/10 -z-10" />
 
-      <MenuBar />
+      <MenuBar onLogout={onLogout} />
 
       {/* Desktop Grid Area */}
       <div className="pt-12 px-4 h-full w-full grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] grid-rows-[repeat(auto-fill,minmax(100px,1fr))] gap-4 content-start items-start justify-items-center">
@@ -161,6 +152,9 @@ export default function Desktop() {
       {openApps.has("docs") && <DocsApp onClose={() => handleCloseApp("docs")} />}
       {openApps.has("notes") && <NotesApp onClose={() => handleCloseApp("notes")} />}
       {openApps.has("utilities") && <UtilitiesApp onClose={() => handleCloseApp("utilities")} />}
+
+      {/* Clippy Assistant */}
+      <Clippy />
 
       {/* Dock */}
       <Dock onOpenApp={handleOpenApp} />

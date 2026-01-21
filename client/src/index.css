@@ -1,45 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* MacOS Inspired Palette */
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
- 
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
- 
-  --primary: 211 100% 50%; /* System Blue */
+  /* Windows 95/98 Color Palette */
+  --background: 195 100% 50%; /* Teal desktop */
+  --foreground: 0 0% 0%;
+
+  --card: 0 0% 75%; /* Gray window */
+  --card-foreground: 0 0% 0%;
+
+  --popover: 0 0% 75%;
+  --popover-foreground: 0 0% 0%;
+
+  --primary: 210 100% 42%; /* Windows blue */
   --primary-foreground: 0 0% 100%;
- 
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
- 
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
- 
-  --accent: 211 100% 50%;
+
+  --secondary: 0 0% 75%;
+  --secondary-foreground: 0 0% 0%;
+
+  --muted: 0 0% 75%;
+  --muted-foreground: 0 0% 40%;
+
+  --accent: 210 100% 42%;
   --accent-foreground: 0 0% 100%;
- 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
 
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 211 100% 50%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 100%;
 
-  --radius: 0.75rem;
+  --border: 0 0% 30%; /* Dark gray borders */
+  --input: 0 0% 90%;
+  --ring: 210 100% 42%;
 
-  /* Glassmorphism Variables */
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  --radius: 0rem; /* No rounded corners */
+
+  /* Windows 95 Specific Colors */
+  --win95-gray: #c0c0c0;
+  --win95-blue: #000080;
+  --win95-teal: #008080;
+  --win95-white: #ffffff;
+  --win95-black: #000000;
+  --win95-dark-gray: #808080;
+  --win95-light-gray: #dfdfdf;
 }
 
 @layer base {
@@ -47,30 +49,92 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-blue-500/30 selection:text-blue-900;
-    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; /* Native font stack preferred */
+    @apply bg-background text-foreground selection:bg-primary selection:text-primary-foreground;
+    font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, sans-serif;
+    font-smooth: never;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
     overflow: hidden; /* Desktop feel */
   }
 }
 
 @layer utilities {
-  .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
+  /* Windows 95 Desktop */
+  .win95-desktop {
+    background: #ffffff;
   }
 
-  .glass-dark {
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Windows 95 Window */
+  .win95-window {
+    background: #c0c0c0;
+    border-style: solid;
+    border-width: 2px;
+    border-top-color: #ffffff;
+    border-left-color: #ffffff;
+    border-right-color: #000000;
+    border-bottom-color: #000000;
+    box-shadow: none;
+  }
+
+  /* Windows 95 Button */
+  .win95-button {
+    background: #c0c0c0;
+    border-style: solid;
+    border-width: 2px;
+    border-top-color: #ffffff;
+    border-left-color: #ffffff;
+    border-right-color: #808080;
+    border-bottom-color: #808080;
+    box-shadow: inset -1px -1px 0 #000000, inset 1px 1px 0 #dfdfdf;
+    padding: 2px 12px;
+    font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, sans-serif;
+    font-size: 11px;
+  }
+
+  .win95-button:active {
+    border-top-color: #000000;
+    border-left-color: #000000;
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
+    box-shadow: inset 1px 1px 0 #808080;
+    padding-top: 4px;
+    padding-left: 14px;
+  }
+
+  /* Windows 95 Title Bar */
+  .win95-titlebar {
+    background: linear-gradient(to right, #000080, #1084d0);
     color: white;
+    padding: 2px 4px;
+    font-weight: bold;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Windows 95 Input (Recessed) */
+  .win95-input {
+    background: white;
+    border-style: solid;
+    border-width: 2px;
+    border-top-color: #808080;
+    border-left-color: #808080;
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
+    box-shadow: inset 1px 1px 0 #000000, inset -1px -1px 0 #dfdfdf;
+    padding: 2px 4px;
+    font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, sans-serif;
+    font-size: 11px;
+  }
+
+  /* Remove all transitions */
+  * {
+    transition: none !important;
+    animation-duration: 0s !important;
   }
 
   .text-shadow {
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    text-shadow: none;
   }
 }

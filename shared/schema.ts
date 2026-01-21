@@ -3,11 +3,13 @@ import mongoose from "mongoose";
 
 // Re-export models
 export { FolderModel, type IFolder } from "./models/folder.model";
+export { FolderItemModel, type IFolderItem } from "./models/folderItem.model";
 export { DocumentModel, type IDocument } from "./models/document.model";
 export { DocMessageModel, type IDocMessage } from "./models/docMessage.model";
 export { ConversationModel, type IConversation } from "./models/conversation.model";
 export { MessageModel, type IMessage } from "./models/message.model";
 export { default as MailingListModel, type IMailingList } from "./models/mailingList.model";
+export { ContextModel, type IContext } from "./models/context.model";
 
 // Zod schemas for validation (replacing drizzle-zod)
 export const insertFolderSchema = z.object({
@@ -105,6 +107,63 @@ export type MailingList = {
 };
 
 export type InsertMailingList = z.infer<typeof insertMailingListSchema>;
+
+// FolderItem schemas
+export const insertFolderItemSchema = z.object({
+  folderId: z.string().min(1, "Folder ID is required"),
+  type: z.enum(['file', 'bookmark', 'note']),
+  name: z.string().min(1, "Name is required"),
+  x: z.number().optional().default(0),
+  y: z.number().optional().default(0),
+  // File fields
+  fileUrl: z.string().nullable().optional(),
+  fileId: z.string().nullable().optional(),
+  originalName: z.string().nullable().optional(),
+  mimeType: z.string().nullable().optional(),
+  fileSize: z.number().nullable().optional(),
+  // Bookmark fields
+  url: z.string().nullable().optional(),
+  faviconUrl: z.string().nullable().optional(),
+  // Note fields
+  content: z.string().nullable().optional(),
+});
+
+export type FolderItem = {
+  id: string;
+  folderId: string;
+  type: 'file' | 'bookmark' | 'note';
+  name: string;
+  x: number;
+  y: number;
+  // File fields
+  fileUrl?: string | null;
+  fileId?: string | null;
+  originalName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  // Bookmark fields
+  url?: string | null;
+  faviconUrl?: string | null;
+  // Note fields
+  content?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InsertFolderItem = z.infer<typeof insertFolderItemSchema>;
+
+// Context schemas
+export const insertContextSchema = z.object({
+  contextData: z.string().min(1, "Context data is required"),
+});
+
+export type Context = {
+  id: string;
+  contextData: string;
+  updatedAt: Date;
+};
+
+export type InsertContext = z.infer<typeof insertContextSchema>;
 
 // Request types
 export type CreateFolderRequest = InsertFolder;

@@ -1,106 +1,321 @@
+import { useState, useRef } from "react";
 import { useParams, Link } from "wouter";
-import { motion } from "framer-motion";
-import { ArrowLeft, FolderOpen, Loader2, Search, X } from "lucide-react";
+import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
+import { ContextMenu } from "@/components/ContextMenu";
+import { FolderItemIcon } from "@/components/FolderItemIcon";
+import { AddBookmarkDialog } from "@/components/AddBookmarkDialog";
+import { CreateNoteDialog } from "@/components/CreateNoteDialog";
+import { EditNoteDialog } from "@/components/EditNoteDialog";
+import { useFolders } from "@/hooks/use-folders";
+import { useFolderItems, useCreateFileItem, useDeleteFolderItem, useUpdateFolderItem } from "@/hooks/use-folder-items";
+import type { FolderItem } from "@shared/schema";
 
 export default function FolderView() {
   const { name } = useParams<{ name: string }>();
-  // In a real app, we'd fetch folder contents here. 
-  // For this v1, we just display the folder name as the "page".
-
   const decodedName = decodeURIComponent(name || "Unknown");
 
+  // Fetch folder to get ID
+  const { data: folders = [] } = useFolders();
+  const folder = folders.find(f => f.name === decodedName);
+  const folderId = folder?.id;
+
+  // Fetch folder items
+  const { data: items = [], isLoading } = useFolderItems(folderId || "");
+  const createFileMutation = useCreateFileItem(folderId || "");
+  const deleteMutation = useDeleteFolderItem(folderId || "");
+  const updateMutation = useUpdateFolderItem(folderId || "");
+
+  // State
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    targetType: 'folder-view' | 'folder-item';
+    itemId: string | null;
+  }>({ visible: false, x: 0, y: 0, targetType: 'folder-view', itemId: null });
+
+  // Dialog State
+  const [isAddBookmarkOpen, setIsAddBookmarkOpen] = useState(false);
+  const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<FolderItem | null>(null);
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (!folderId) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => {
+      createFileMutation.mutate({ file, x: 0, y: 0 });
+    });
+  };
+
+  // Context menu handlers
+  const handleBackgroundContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetType: 'folder-view',
+      itemId: null,
+    });
+  };
+
+  const handleItemContextMenu = (e: React.MouseEvent, itemId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetType: 'folder-item',
+      itemId,
+    });
+  };
+
+  // Item handlers
+  const handleItemDoubleClick = (item: FolderItem) => {
+    if (item.type === 'file' && item.fileUrl) {
+      window.open(item.fileUrl, '_blank');
+    } else if (item.type === 'bookmark' && item.url) {
+      window.open(item.url, '_blank');
+    } else if (item.type === 'note') {
+      setEditingNote(item);
+    }
+  };
+
+  const handleDeleteItem = () => {
+    if (contextMenu.itemId) {
+      deleteMutation.mutate(contextMenu.itemId);
+    }
+  };
+
+  const handleRenameItem = () => {
+    if (contextMenu.itemId) {
+      setRenamingItemId(contextMenu.itemId);
+    }
+  };
+
+  const handleRenameSubmit = (itemId: string, newName: string) => {
+    updateMutation.mutate(
+      { itemId, name: newName },
+      {
+        onSuccess: () => {
+          setRenamingItemId(null);
+        },
+        onError: () => {
+          setRenamingItemId(null);
+        }
+      }
+    );
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingItemId(null);
+  };
+
+  const handleViewClick = () => {
+    setSelectedItemId(null);
+    setRenamingItemId(null);
+    setContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
+  const handleUploadFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!folderId) return;
+
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      createFileMutation.mutate({ file, x: 0, y: 0 });
+    });
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  if (!folder) {
+    return (
+      <div className="h-screen w-screen overflow-hidden relative win95-desktop flex flex-col items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen w-screen overflow-hidden relative bg-gray-100 flex flex-col">
-       {/* Wallpaper background (blurred for depth) */}
-       <div 
-        className="absolute inset-0 bg-cover bg-center -z-10 blur-xl scale-110 opacity-50"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070&auto=format&fit=crop')`
-        }}
-      />
-      
+    <div className="h-screen w-screen overflow-hidden relative win95-desktop flex flex-col">
       <MenuBar />
 
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className="w-full max-w-5xl h-full max-h-[800px] glass bg-white/80 rounded-xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-black/5"
-        >
+        <div className="w-full max-w-5xl h-full max-h-[800px] win95-window flex flex-col overflow-hidden">
+          {/* Window Title Bar */}
+          <div className="win95-titlebar">
+            <span className="text-xs font-bold text-white">{decodedName}</span>
+            <div className="flex items-center gap-0.5">
+              <button className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0" style={{ minHeight: '16px', padding: '0' }}>
+                _
+              </button>
+              <button className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0" style={{ minHeight: '16px', padding: '0' }}>
+                □
+              </button>
+              <Link href="/">
+                <button className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0" style={{ minHeight: '16px', padding: '0' }}>
+                  ×
+                </button>
+              </Link>
+            </div>
+          </div>
+
           {/* Window Toolbar */}
-          <div className="h-14 bg-gray-50/50 border-b border-gray-200/50 flex items-center justify-between px-4 shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="flex gap-2">
-                <Link href="/">
-                  <div className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 border border-red-600/20 cursor-pointer flex items-center justify-center group">
-                    <X className="w-2 h-2 text-red-900 opacity-0 group-hover:opacity-100" />
-                  </div>
-                </Link>
-                <div className="w-3 h-3 rounded-full bg-yellow-500 border border-yellow-600/20" />
-                <div className="w-3 h-3 rounded-full bg-green-500 border border-green-600/20" />
-              </div>
-              
-              <div className="flex items-center gap-1 ml-4 text-gray-500">
-                <Link href="/">
-                   <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-200/50">
-                    <ArrowLeft className="w-4 h-4" />
-                  </Button>
-                </Link>
-                <span className="text-sm font-semibold text-gray-700 mx-2">{decodedName}</span>
-              </div>
+          <div className="h-10 bg-win95-gray border-b-2 border-b-white flex items-center px-2 shrink-0" style={{ borderBottom: '2px solid #ffffff', boxShadow: 'inset 0 -1px 0 #808080' }}>
+            <div className="flex items-center gap-2">
+              <Link href="/">
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  <ArrowLeft className="w-3 h-3 mr-1" />
+                  Back
+                </Button>
+              </Link>
             </div>
 
-            <div className="relative hidden sm:block">
-              <Search className="absolute left-2.5 top-1.5 w-4 h-4 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search" 
-                className="pl-9 pr-4 py-1 bg-gray-200/50 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 w-48 transition-all"
+            <div className="relative hidden sm:block ml-auto">
+              <Search className="absolute left-2 top-1.5 w-3 h-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search"
+                className="win95-input pl-7 pr-2 py-0.5 text-xs w-40"
               />
             </div>
           </div>
 
           {/* Window Content */}
-          <div className="flex-1 p-8 overflow-y-auto bg-white/40">
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-              <div className="w-24 h-24 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-500 shadow-inner">
-                <FolderOpen className="w-12 h-12" />
+          <div
+            className="flex-1 overflow-y-auto bg-white relative"
+            onClick={handleViewClick}
+            onContextMenu={handleBackgroundContextMenu}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {isDraggingOver && (
+              <div className="absolute inset-0 bg-blue-100 bg-opacity-50 border-4 border-dashed border-blue-400 flex items-center justify-center z-10">
+                <p className="text-lg font-bold text-blue-600">Drop files here to upload</p>
               </div>
-              
-              <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-gray-900">{decodedName}</h1>
-                <p className="text-gray-500 max-w-md mx-auto">
-                  This is the content page for your folder. 
-                  In a full application, you could add files, documents, or apps here.
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500 text-sm">
+                  This folder is empty. Right-click to add items or drag files here.
                 </p>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg mt-8">
-                {/* Placeholder items to look populated */}
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-white/60 p-4 rounded-lg border border-white/40 shadow-sm flex items-center gap-3 hover:bg-white/80 transition-colors cursor-pointer">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="w-5 h-5 bg-gray-300 rounded" />
-                    </div>
-                    <div className="text-left">
-                      <div className="h-4 w-24 bg-gray-200 rounded mb-1" />
-                      <div className="h-3 w-16 bg-gray-100 rounded" />
-                    </div>
-                  </div>
+            ) : (
+              <div className="p-4 grid grid-cols-[repeat(auto-fill,96px)] gap-2">
+                {items.map((item) => (
+                  <FolderItemIcon
+                    key={item.id}
+                    item={item}
+                    selected={selectedItemId === item.id}
+                    isRenaming={renamingItemId === item.id}
+                    onSelect={() => setSelectedItemId(item.id)}
+                    onDoubleClick={() => handleItemDoubleClick(item)}
+                    onContextMenu={(e) => handleItemContextMenu(e, item.id)}
+                    onRenameSubmit={(newName) => handleRenameSubmit(item.id, newName)}
+                    onRenameCancel={handleRenameCancel}
+                  />
                 ))}
               </div>
-            </div>
+            )}
           </div>
-          
+
           {/* Status Bar */}
-          <div className="h-6 bg-gray-50/80 border-t border-gray-200/50 px-4 flex items-center text-xs text-gray-500">
-            4 items, 1.2 GB available
+          <div className="h-6 bg-win95-gray border-t-2 border-t-white px-4 flex items-center text-xs text-black" style={{ borderTop: '2px solid #ffffff', boxShadow: 'inset 0 1px 0 #dfdfdf' }}>
+            {items.length} {items.length === 1 ? 'item' : 'items'}
           </div>
-        </motion.div>
+        </div>
       </div>
+
+      {/* Context Menu */}
+      <ContextMenu
+        visible={contextMenu.visible}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        targetType={contextMenu.targetType}
+        onClose={() => setContextMenu(prev => ({ ...prev, visible: false }))}
+        onAddBookmark={() => setIsAddBookmarkOpen(true)}
+        onAddNote={() => setIsCreateNoteOpen(true)}
+        onUploadFile={handleUploadFile}
+        onOpen={() => {
+          const item = items.find(i => i.id === contextMenu.itemId);
+          if (item) handleItemDoubleClick(item);
+        }}
+        onRename={handleRenameItem}
+        onDelete={handleDeleteItem}
+      />
+
+      {/* Hidden file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+
+      {/* Dialogs */}
+      {folderId && (
+        <>
+          <AddBookmarkDialog
+            open={isAddBookmarkOpen}
+            onOpenChange={setIsAddBookmarkOpen}
+            folderId={folderId}
+          />
+          <CreateNoteDialog
+            open={isCreateNoteOpen}
+            onOpenChange={setIsCreateNoteOpen}
+            folderId={folderId}
+            onNoteCreated={(note) => setEditingNote(note)}
+          />
+          {editingNote && (
+            <EditNoteDialog
+              open={true}
+              onOpenChange={(open) => !open && setEditingNote(null)}
+              note={editingNote}
+              folderId={folderId}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

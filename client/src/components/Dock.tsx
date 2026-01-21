@@ -13,25 +13,18 @@ const apps = [
 
 export function Dock({ onOpenApp }: DockProps) {
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
-      <div className="flex items-end gap-2 px-3 py-2 rounded-2xl bg-white/30 backdrop-blur-xl border border-white/20 shadow-2xl">
-        {apps.map((app) => (
-          <button
-            key={app.id}
-            onClick={() => onOpenApp(app.id)}
-            className="group flex flex-col items-center"
-            data-testid={`dock-app-${app.id}`}
-          >
-            <div className={cn(
-              "w-12 h-12 rounded-xl flex items-center justify-center bg-white/80 shadow-lg transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-2 group-active:scale-95",
-              "border border-white/50"
-            )}>
-              <app.icon className={cn("w-7 h-7", app.color)} />
-            </div>
-            <span className="text-[10px] text-white font-medium mt-1 drop-shadow-md">{app.name}</span>
-          </button>
-        ))}
-      </div>
+    <div className="fixed bottom-0 left-0 right-0 z-40 h-10 bg-win95-gray border-t-2 border-t-white flex items-center px-2 gap-1" style={{ borderTop: '2px solid #ffffff', boxShadow: 'inset 0 2px 0 #dfdfdf' }}>
+      {apps.map((app) => (
+        <button
+          key={app.id}
+          onClick={() => onOpenApp(app.id)}
+          className="win95-button flex items-center gap-2 h-8 px-3"
+          data-testid={`dock-app-${app.id}`}
+        >
+          <app.icon className={cn("w-4 h-4", app.color)} />
+          <span className="text-xs font-medium">{app.name}</span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -6,9 +6,9 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: "0px",
+        md: "0px",
+        sm: "0px",
       },
       colors: {
         // Flat / base colors (regular buttons)
@@ -81,6 +81,17 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        "win95-gray": "#c0c0c0",
+        "win95-blue": "#000080",
+        "win95-teal": "#008080",
+        "win95-white": "#ffffff",
+        "win95-black": "#000000",
+        "win95-dark-gray": "#808080",
+        "win95-light-gray": "#dfdfdf",
+      },
+      boxShadow: {
+        "win95-raised": "inset -1px -1px 0 #000000, inset 1px 1px 0 #dfdfdf, inset -2px -2px 0 #808080, inset 2px 2px 0 #ffffff",
+        "win95-pressed": "inset 1px 1px 0 #000000, inset 2px 2px 0 #808080",
       },
       fontFamily: {
         sans: ["var(--font-sans)"],

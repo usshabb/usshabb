@@ -169,6 +169,299 @@ async function createVisionMessages(
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+/**
+ * Get database schema information for Clippy
+ */
+function getDatabaseSchema() {
+  return {
+    collections: {
+      folders: {
+        description: "Desktop folders that contain items",
+        fields: {
+          id: "Unique identifier",
+          name: "Folder name",
+          x: "X position on desktop",
+          y: "Y position on desktop"
+        }
+      },
+      folderItems: {
+        description: "Items inside folders (files, bookmarks, notes)",
+        fields: {
+          id: "Unique identifier",
+          folderId: "ID of parent folder",
+          type: "Type of item: 'file', 'bookmark', or 'note'",
+          name: "Item name",
+          x: "X position in folder",
+          y: "Y position in folder",
+          fileUrl: "(for files) URL of uploaded file",
+          originalName: "(for files) Original filename",
+          mimeType: "(for files) MIME type",
+          fileSize: "(for files) Size in bytes",
+          url: "(for bookmarks) Bookmark URL",
+          faviconUrl: "(for bookmarks) Favicon URL",
+          content: "(for notes) Note content",
+          createdAt: "Creation timestamp",
+          updatedAt: "Last update timestamp"
+        }
+      },
+      documents: {
+        description: "PDF documents uploaded for AI chat analysis",
+        fields: {
+          id: "Unique identifier",
+          name: "Document name",
+          originalName: "Original filename",
+          content: "Extracted text content from PDF",
+          fileUrl: "URL of uploaded PDF",
+          fileId: "ImageKit file ID",
+          createdAt: "Upload timestamp"
+        }
+      },
+      docMessages: {
+        description: "Chat messages related to document analysis",
+        fields: {
+          id: "Unique identifier",
+          documentId: "Related document ID (null for general chat)",
+          role: "'user' or 'assistant'",
+          content: "Message content",
+          referencedDocs: "Array of document names referenced",
+          createdAt: "Message timestamp"
+        }
+      },
+      mailingLists: {
+        description: "Email mailing lists",
+        fields: {
+          id: "Unique identifier",
+          name: "Mailing list name",
+          emails: "Array of email addresses",
+          createdAt: "Creation timestamp"
+        }
+      }
+    }
+  };
+}
+
+/**
+ * Generates context by collecting all data from database and sending to OpenAI
+ */
+async function generateContext(): Promise<string> {
+  try {
+    // Collect all data from database
+    const [folders, documents, docMessages, mailingLists] = await Promise.all([
+      storage.getFolders(),
+      storage.getDocuments(),
+      storage.getDocMessages(),
+      storage.getMailingLists(),
+    ]);
+
+    // Collect all folder items
+    const folderItemsData = [];
+    for (const folder of folders) {
+      const items = await storage.getFolderItems(folder.id);
+      folderItemsData.push({
+        folderId: folder.id,
+        folderName: folder.name,
+        items,
+      });
+    }
+
+    // Compile all data
+    const allData = {
+      folders,
+      folderItems: folderItemsData,
+      documents: documents.map(d => ({
+        id: d.id,
+        name: d.name,
+        originalName: d.originalName,
+        createdAt: d.createdAt,
+        contentPreview: d.content.substring(0, 500), // Limit content to avoid token limits
+      })),
+      docMessages: docMessages.slice(-20), // Last 20 messages
+      mailingLists,
+    };
+
+    // Send to OpenAI to generate context summary
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a context analyzer. Given all the data from a user's desktop system, create a comprehensive but concise context summary that captures:
+- What folders exist and what's in them
+- What documents have been uploaded and their general topics
+- What conversations the user has had with the AI assistant
+- What mailing lists exist
+- Any patterns or key information that would be useful for answering future questions
+
+Format the context as a structured summary that can be easily referenced. Be concise but informative. Focus on the most important and useful information.`
+        },
+        {
+          role: "user",
+          content: `Here is all the data from the system:\n\n${JSON.stringify(allData, null, 2)}\n\nPlease create a comprehensive context summary.`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 2000,
+    });
+
+    const contextSummary = completion.choices[0]?.message?.content;
+    if (!contextSummary) {
+      throw new Error("Failed to generate context");
+    }
+
+    return contextSummary;
+  } catch (error) {
+    console.error("Error generating context:", error);
+    throw error;
+  }
+}
+
+/**
+ * Handles a question from Clippy by analyzing database schema and querying data
+ */
+async function handleClippyQuestion(question: string): Promise<string> {
+  const schema = getDatabaseSchema();
+
+  // Get context if available
+  const contextData = await storage.getContext();
+
+  // Step 1: Use OpenAI to determine what data we need to query
+  const analysisCompletion = await openai.chat.completions.create({
+    model: "gpt-4o-mini", // Fast and cheap model
+    messages: [
+      {
+        role: "system",
+        content: `You are a database query planner. Given a user question and database schema, determine what data needs to be queried.
+
+Database Schema:
+${JSON.stringify(schema, null, 2)}
+
+Available query operations:
+- getFolders(): Get all folders
+- getFolder(id): Get specific folder
+- getFolderItems(folderId): Get items in a folder
+- getDocuments(): Get all documents
+- getDocument(id): Get specific document
+- getDocMessages(): Get all chat messages
+- getMailingLists(): Get all mailing lists
+- getMailingList(id): Get specific mailing list
+
+Respond with a JSON object specifying what queries to run:
+{
+  "queries": ["queryName1", "queryName2"],
+  "reasoning": "why these queries are needed"
+}
+
+If the question cannot be answered with available data, respond with:
+{
+  "queries": [],
+  "reasoning": "explanation of why data is not available"
+}`
+      },
+      {
+        role: "user",
+        content: question
+      }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.3,
+  });
+
+  const analysisText = analysisCompletion.choices[0]?.message?.content;
+  if (!analysisText) {
+    throw new Error("Failed to analyze question");
+  }
+
+  const analysis = JSON.parse(analysisText);
+
+  // Step 2: Execute the determined queries
+  const queryResults: Record<string, any> = {};
+
+  for (const queryName of analysis.queries) {
+    try {
+      switch (queryName) {
+        case "getFolders":
+          queryResults.folders = await storage.getFolders();
+          break;
+        case "getFolderItems":
+          // Get all folders first, then get items for each
+          const folders = await storage.getFolders();
+          queryResults.folderItems = [];
+          for (const folder of folders) {
+            const items = await storage.getFolderItems(folder.id);
+            queryResults.folderItems.push({
+              folderId: folder.id,
+              folderName: folder.name,
+              items
+            });
+          }
+          break;
+        case "getDocuments":
+          queryResults.documents = await storage.getDocuments();
+          break;
+        case "getDocMessages":
+          queryResults.docMessages = await storage.getDocMessages();
+          break;
+        case "getMailingLists":
+          queryResults.mailingLists = await storage.getMailingLists();
+          break;
+      }
+    } catch (error) {
+      console.error(`Error executing query ${queryName}:`, error);
+      queryResults[queryName] = { error: "Failed to execute query" };
+    }
+  }
+
+  // Step 3: Use OpenAI to formulate a natural language answer
+  const systemPrompt = `You are Clippy, a helpful desktop assistant from the Windows 95 era. You're friendly, enthusiastic, and love to help users with their questions. Use a warm, conversational tone.
+
+When answering:
+- Be concise and direct
+- Use the data provided to give specific, accurate information
+- If the data doesn't contain the answer, politely explain what information is available
+- Add a touch of personality but stay professional
+- Use bullet points for lists when appropriate${contextData ? '\n\nYou have access to a context summary that provides an overview of the user\'s system. Use it to provide more informed answers.' : ''}`;
+
+  const userPrompt = contextData
+    ? `Context Summary:
+${contextData.contextData}
+
+Question: ${question}
+
+Query Results:
+${JSON.stringify(queryResults, null, 2)}
+
+Please provide a helpful answer based on the context and data above.`
+    : `Question: ${question}
+
+Query Results:
+${JSON.stringify(queryResults, null, 2)}
+
+Please provide a helpful answer based on the data above.`;
+
+  const answerCompletion = await openai.chat.completions.create({
+    model: "gpt-4o-mini", // Fast and cheap model
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt
+      },
+      {
+        role: "user",
+        content: userPrompt
+      }
+    ],
+    temperature: 0.7,
+    max_tokens: 500,
+  });
+
+  const answer = answerCompletion.choices[0]?.message?.content;
+  if (!answer) {
+    throw new Error("Failed to generate answer");
+  }
+
+  return answer;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -498,6 +791,232 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error deleting mailing list:", err);
       res.status(500).json({ message: "Failed to delete mailing list" });
+    }
+  });
+
+  // === FOLDER ITEM ROUTES ===
+
+  // Helper function to fetch favicon URL
+  function getFaviconUrl(url: string): string {
+    try {
+      const hostname = new URL(url).hostname;
+      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+    } catch {
+      return `https://www.google.com/s2/favicons?domain=default&sz=64`;
+    }
+  }
+
+  // List folder items
+  app.get(api.folderItems.list.path, async (req, res) => {
+    try {
+      const { folderId } = req.params;
+      const items = await storage.getFolderItems(folderId);
+      res.json(items);
+    } catch (err) {
+      console.error("Error fetching folder items:", err);
+      res.status(500).json({ message: "Failed to fetch folder items" });
+    }
+  });
+
+  // Upload file to folder
+  app.post(api.folderItems.createFile.path, upload.single('file'), async (req, res) => {
+    try {
+      const { folderId } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Check file size (50MB limit)
+      const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+      if (req.file.size > maxSize) {
+        return res.status(400).json({ message: "File size exceeds 50MB limit" });
+      }
+
+      // Upload to ImageKit in folder-specific path
+      const { url, fileId } = await uploadToImageKit(
+        req.file.buffer,
+        req.file.originalname,
+        `/folders/${folderId}`
+      );
+
+      // Parse x, y from request body if provided
+      const x = req.body.x ? parseInt(req.body.x) : 0;
+      const y = req.body.y ? parseInt(req.body.y) : 0;
+
+      const folderItem = await storage.createFolderItem({
+        folderId,
+        type: 'file',
+        name: req.file.originalname,
+        x,
+        y,
+        fileUrl: url,
+        fileId,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        url: null,
+        faviconUrl: null,
+        content: null,
+      });
+
+      res.status(201).json(folderItem);
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+
+  // Create bookmark in folder
+  app.post(api.folderItems.createBookmark.path, async (req, res) => {
+    try {
+      const { folderId } = req.params;
+      const input = api.folderItems.createBookmark.input.parse(req.body);
+
+      const faviconUrl = getFaviconUrl(input.url);
+
+      const folderItem = await storage.createFolderItem({
+        folderId,
+        type: 'bookmark',
+        name: input.name,
+        x: input.x,
+        y: input.y,
+        url: input.url,
+        faviconUrl,
+        fileUrl: null,
+        fileId: null,
+        originalName: null,
+        mimeType: null,
+        fileSize: null,
+        content: null,
+      });
+
+      res.status(201).json(folderItem);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      console.error("Error creating bookmark:", err);
+      res.status(500).json({ message: "Failed to create bookmark" });
+    }
+  });
+
+  // Create note in folder
+  app.post(api.folderItems.createNote.path, async (req, res) => {
+    try {
+      const { folderId } = req.params;
+      const input = api.folderItems.createNote.input.parse(req.body);
+
+      const folderItem = await storage.createFolderItem({
+        folderId,
+        type: 'note',
+        name: input.name,
+        x: input.x,
+        y: input.y,
+        content: input.content,
+        fileUrl: null,
+        fileId: null,
+        originalName: null,
+        mimeType: null,
+        fileSize: null,
+        url: null,
+        faviconUrl: null,
+      });
+
+      res.status(201).json(folderItem);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      console.error("Error creating note:", err);
+      res.status(500).json({ message: "Failed to create note" });
+    }
+  });
+
+  // Update folder item
+  app.patch(api.folderItems.update.path, async (req, res) => {
+    try {
+      const { folderId, itemId } = req.params;
+      const input = api.folderItems.update.input.parse(req.body);
+
+      const updated = await storage.updateFolderItem(folderId, itemId, input);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      console.error("Error updating folder item:", err);
+      res.status(404).json({ message: "Folder item not found" });
+    }
+  });
+
+  // Delete folder item
+  app.delete(api.folderItems.delete.path, async (req, res) => {
+    try {
+      const { folderId, itemId } = req.params;
+      await storage.deleteFolderItem(folderId, itemId);
+      res.status(204).send();
+    } catch (err) {
+      console.error("Error deleting folder item:", err);
+      res.status(500).json({ message: "Failed to delete folder item" });
+    }
+  });
+
+  // === CLIPPY ASSISTANT ===
+  app.post(api.clippy.ask.path, async (req, res) => {
+    try {
+      const input = api.clippy.ask.input.parse(req.body);
+
+      // Check if OpenAI is configured
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.status(500).json({
+          message: "AI service is not configured. Please contact the administrator."
+        });
+      }
+
+      const answer = await handleClippyQuestion(input.question);
+      res.json({ answer });
+    } catch (err) {
+      console.error("Error in Clippy assistant:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({
+        message: err instanceof Error ? err.message : "Failed to process question"
+      });
+    }
+  });
+
+  app.post(api.clippy.updateContext.path, async (req, res) => {
+    try {
+      // Check if OpenAI is configured
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.status(500).json({
+          message: "AI service is not configured. Please contact the administrator."
+        });
+      }
+
+      // Generate context from all data
+      const contextSummary = await generateContext();
+
+      // Save to database
+      await storage.createOrUpdateContext(contextSummary);
+
+      res.json({ message: "Context updated successfully!" });
+    } catch (err) {
+      console.error("Error updating context:", err);
+      res.status(500).json({
+        message: err instanceof Error ? err.message : "Failed to update context"
+      });
     }
   });
 

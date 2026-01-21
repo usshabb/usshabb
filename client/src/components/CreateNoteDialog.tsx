@@ -1,29 +1,33 @@
 import { useState } from "react";
-import { useCreateFolder } from "@/hooks/use-folders";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useCreateNoteItem } from "@/hooks/use-folder-items";
+import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import type { FolderItem } from "@shared/schema";
 
-interface CreateFolderDialogProps {
+interface CreateNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  folderId: string;
+  onNoteCreated?: (note: FolderItem) => void;
 }
 
-export function CreateFolderDialog({ open, onOpenChange }: CreateFolderDialogProps) {
+export function CreateNoteDialog({ open, onOpenChange, folderId, onNoteCreated }: CreateNoteDialogProps) {
   const [name, setName] = useState("");
-  const { mutate, isPending } = useCreateFolder();
+  const { mutate, isPending } = useCreateNoteItem(folderId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
     mutate(
-      { name, x: 0, y: 0 },
+      { name, content: "", x: 0, y: 0 },
       {
-        onSuccess: () => {
+        onSuccess: (note) => {
           setName("");
           onOpenChange(false);
+          onNoteCreated?.(note);
         },
       }
     );
@@ -33,16 +37,16 @@ export function CreateFolderDialog({ open, onOpenChange }: CreateFolderDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xs p-0">
         <div className="win95-titlebar">
-          <DialogTitle className="text-xs font-bold text-white">New Folder</DialogTitle>
+          <DialogTitle className="text-xs font-bold text-white">New Note</DialogTitle>
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4 bg-win95-gray">
           <div className="space-y-2">
-            <label className="text-xs font-medium">Folder Name:</label>
+            <label className="text-xs font-medium">Note Name:</label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Folder Name"
+              placeholder="Note Name"
               className="text-sm"
               autoFocus
             />

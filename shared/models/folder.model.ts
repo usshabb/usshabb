@@ -25,4 +25,15 @@ const folderSchema = new Schema<IFolder>({
   timestamps: false
 });
 
+// Pre-remove hook to cascade delete all FolderItems
+folderSchema.pre('deleteOne', { document: true, query: false }, async function() {
+  const FolderItemModel = mongoose.model('FolderItem');
+  const items = await FolderItemModel.find({ folderId: this._id });
+
+  // Delete each item individually to trigger their pre-remove hooks
+  for (const item of items) {
+    await item.deleteOne();
+  }
+});
+
 export const FolderModel = mongoose.model<IFolder>('Folder', folderSchema);

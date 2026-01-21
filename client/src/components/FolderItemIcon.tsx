@@ -1,45 +1,77 @@
-import { Folder, Check, X } from "lucide-react";
-import { Link } from "wouter";
+import { FileText, Image, Video, File, Archive, Link as LinkIcon, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
+import type { FolderItem } from "@shared/schema";
 
-interface DesktopIconProps {
-  id: string;
-  name: string;
-  x?: number;
-  y?: number;
+interface FolderItemIconProps {
+  item: FolderItem;
   selected?: boolean;
   isRenaming?: boolean;
   onSelect?: () => void;
+  onDoubleClick?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   onRenameSubmit?: (newName: string) => void;
   onRenameCancel?: () => void;
 }
 
-export function DesktopIcon({
-  id,
-  name,
+function getFileIcon(item: FolderItem) {
+  if (item.type === 'bookmark') {
+    return item.faviconUrl ? (
+      <img src={item.faviconUrl} alt="" className="w-12 h-12 object-contain" />
+    ) : (
+      <LinkIcon className="w-12 h-12 text-blue-600" />
+    );
+  }
+
+  if (item.type === 'note') {
+    return <StickyNote className="w-12 h-12 text-yellow-400" />;
+  }
+
+  // File type
+  const mimeType = item.mimeType || '';
+
+  if (mimeType.startsWith('image/')) {
+    return <Image className="w-12 h-12 text-purple-600" />;
+  }
+
+  if (mimeType.startsWith('video/')) {
+    return <Video className="w-12 h-12 text-red-600" />;
+  }
+
+  if (mimeType === 'application/pdf') {
+    return <FileText className="w-12 h-12 text-red-500" />;
+  }
+
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar') || mimeType.includes('gz')) {
+    return <Archive className="w-12 h-12 text-orange-600" />;
+  }
+
+  return <File className="w-12 h-12 text-gray-600" />;
+}
+
+export function FolderItemIcon({
+  item,
   selected,
   isRenaming,
   onSelect,
+  onDoubleClick,
   onContextMenu,
   onRenameSubmit,
   onRenameCancel
-}: DesktopIconProps) {
-  const [editValue, setEditValue] = useState(name);
+}: FolderItemIconProps) {
+  const [editValue, setEditValue] = useState(item.name);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isRenaming) {
-      setEditValue(name);
+      setEditValue(item.name);
       setTimeout(() => inputRef.current?.select(), 0);
     }
-  }, [isRenaming, name]);
+  }, [isRenaming, item.name]);
 
   const handleSubmit = () => {
-    if (editValue.trim() && editValue !== name) {
+    if (editValue.trim() && editValue !== item.name) {
       onRenameSubmit?.(editValue.trim());
     } else {
       onRenameCancel?.();
@@ -56,12 +88,18 @@ export function DesktopIcon({
     }
   };
 
-  const iconContent = (
+  return (
     <div
       onClick={(e) => {
         if (!isRenaming) {
           e.stopPropagation();
           onSelect?.();
+        }
+      }}
+      onDoubleClick={(e) => {
+        if (!isRenaming) {
+          e.stopPropagation();
+          onDoubleClick?.();
         }
       }}
       onContextMenu={(e) => {
@@ -76,24 +114,7 @@ export function DesktopIcon({
       )}
     >
       <div className="relative">
-        <svg
-          width="48"
-          height="48"
-          viewBox="0 0 48 48"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Folder back */}
-          <path d="M4 12 L4 36 L40 36 L44 32 L44 12 Z" fill="#0066CC" stroke="#000000" strokeWidth="1.5"/>
-          {/* Folder tab */}
-          <path d="M4 12 L4 8 L18 8 L20 12 Z" fill="#0066CC" stroke="#000000" strokeWidth="1.5"/>
-          {/* 3D highlight top */}
-          <path d="M4 12 L44 12 L44 13 L4 13 Z" fill="#3399FF"/>
-          {/* 3D shadow bottom */}
-          <path d="M40 36 L44 32 L44 31 L40 35 Z" fill="#004C99"/>
-          {/* 3D edge right */}
-          <path d="M44 12 L44 32 L43 32 L43 12 Z" fill="#004C99"/>
-        </svg>
+        {getFileIcon(item)}
       </div>
 
       {isRenaming ? (
@@ -105,7 +126,6 @@ export function DesktopIcon({
             onKeyDown={handleKeyDown}
             onBlur={handleSubmit}
             className="h-6 text-xs px-1 bg-white text-black border border-black rounded-none"
-            data-testid={`input-rename-folder-${id}`}
           />
         </div>
       ) : (
@@ -113,19 +133,9 @@ export function DesktopIcon({
           "text-xs font-medium text-black text-center break-words w-full px-1 py-0.5 leading-tight",
           selected ? "bg-win95-blue text-white" : ""
         )}>
-          {name}
+          {item.name}
         </span>
       )}
     </div>
-  );
-
-  if (isRenaming) {
-    return iconContent;
-  }
-
-  return (
-    <Link href={`/${name}`}>
-      {iconContent}
-    </Link>
   );
 }

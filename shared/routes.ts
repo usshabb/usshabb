@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertFolderSchema, insertMailingListSchema, type Folder, type Document, type DocMessage, type MailingList } from './schema';
+import { insertFolderSchema, insertMailingListSchema, insertFolderItemSchema, type Folder, type Document, type DocMessage, type MailingList, type FolderItem } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -176,6 +176,95 @@ export const api = {
       responses: {
         204: z.void(),
         404: errorSchemas.notFound,
+      },
+    },
+  },
+  folderItems: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/folders/:folderId/items',
+      responses: {
+        200: z.array(z.custom<FolderItem>()),
+      },
+    },
+    createFile: {
+      method: 'POST' as const,
+      path: '/api/folders/:folderId/items/file',
+      responses: {
+        201: z.custom<FolderItem>(),
+        400: errorSchemas.validation,
+      },
+    },
+    createBookmark: {
+      method: 'POST' as const,
+      path: '/api/folders/:folderId/items/bookmark',
+      input: z.object({
+        name: z.string().min(1, "Name is required"),
+        url: z.string().url("Valid URL is required"),
+        x: z.number().optional().default(0),
+        y: z.number().optional().default(0),
+      }),
+      responses: {
+        201: z.custom<FolderItem>(),
+        400: errorSchemas.validation,
+      },
+    },
+    createNote: {
+      method: 'POST' as const,
+      path: '/api/folders/:folderId/items/note',
+      input: z.object({
+        name: z.string().min(1, "Name is required"),
+        content: z.string().optional().default(""),
+        x: z.number().optional().default(0),
+        y: z.number().optional().default(0),
+      }),
+      responses: {
+        201: z.custom<FolderItem>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/folders/:folderId/items/:itemId',
+      input: insertFolderItemSchema.partial().omit({ folderId: true, type: true }),
+      responses: {
+        200: z.custom<FolderItem>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/folders/:folderId/items/:itemId',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  clippy: {
+    ask: {
+      method: 'POST' as const,
+      path: '/api/clippy/ask',
+      input: z.object({
+        question: z.string().min(1, "Question is required"),
+      }),
+      responses: {
+        200: z.object({
+          answer: z.string(),
+        }),
+        400: errorSchemas.validation,
+        500: errorSchemas.internal,
+      },
+    },
+    updateContext: {
+      method: 'POST' as const,
+      path: '/api/clippy/update-context',
+      responses: {
+        200: z.object({
+          message: z.string(),
+        }),
+        500: errorSchemas.internal,
       },
     },
   },

@@ -21,25 +21,37 @@ interface AppWindowProps {
 
 export function AppWindow({ appId, title, onClose, children, width = "600px", height = "500px" }: AppWindowProps) {
   return (
-    <div 
-      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl overflow-hidden shadow-2xl z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/30 dark:border-gray-700/30"
+    <div
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden shadow-2xl z-30 win95-window"
       style={{ width, height }}
       data-testid={`window-${appId}`}
     >
-      <div className="h-10 bg-gray-100/90 dark:bg-gray-800/90 backdrop-blur flex items-center px-3 border-b border-gray-200/50 dark:border-gray-700/50">
-        <div className="flex items-center gap-2">
+      <div className="win95-titlebar h-7">
+        <span className="text-xs font-bold text-white">{title}</span>
+        <div className="flex items-center gap-0.5">
+          <button
+            className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0"
+            style={{ minHeight: '16px', padding: '0' }}
+          >
+            _
+          </button>
+          <button
+            className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0"
+            style={{ minHeight: '16px', padding: '0' }}
+          >
+            □
+          </button>
           <button
             onClick={onClose}
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
+            className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0"
             data-testid={`button-close-${appId}`}
-          />
-          <div className="w-3 h-3 rounded-full bg-yellow-500" />
-          <div className="w-3 h-3 rounded-full bg-green-500" />
+            style={{ minHeight: '16px', padding: '0' }}
+          >
+            ×
+          </button>
         </div>
-        <span className="flex-1 text-center text-sm font-medium text-gray-700 dark:text-gray-200">{title}</span>
-        <div className="w-16" />
       </div>
-      <div className="h-[calc(100%-2.5rem)] overflow-hidden">
+      <div className="h-[calc(100%-1.75rem)] overflow-hidden bg-white">
         {children}
       </div>
     </div>
