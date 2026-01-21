@@ -9,8 +9,7 @@
     }
   ],
   "functions": {
-    "api/index.js": {
-      "runtime": "nodejs20.x",
+    "api/**/*.js": {
       "maxDuration": 60,
       "memory": 1024
     }
