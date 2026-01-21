@@ -8,9 +8,7 @@ node_modules
 .git
 .gitignore
 
-# Source files (we only need the built version)
-client/src
-server/*.ts
+# Source files are needed for build process
 
 # Test and documentation
 *.test.ts
