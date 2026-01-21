@@ -2,7 +2,13 @@
 // This file will be compiled by the build process and won't directly load dist/index.cjs
 // Instead, Vercel will use this as the entry point and include all dependencies
 
-const path = require('path');
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const require = createRequire(import.meta.url);
 
 // Set production mode
 process.env.NODE_ENV = 'production';
@@ -33,4 +39,4 @@ try {
   };
 }
 
-module.exports = app;
+export default app;
