@@ -8,6 +8,17 @@ import { connectDB } from "./db";
 const app = express();
 const httpServer = createServer(app);
 
+// Middleware to ensure DB connection on each request (for serverless)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Failed to connect to database:", error);
+    res.status(500).json({ error: "Database connection failed" });
+  }
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -62,9 +73,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Connect to MongoDB first
-  await connectDB();
-
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -85,14 +93,17 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
-  });
+  // Only start the server if not in Vercel (Vercel handles this)
+  if (!process.env.VERCEL) {
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = parseInt(process.env.PORT || "5000", 10);
+    httpServer.listen(port, "0.0.0.0", () => {
+      log(`serving on port ${port}`);
+    });
+  }
 })();
 
 // Export the Express app for Vercel serverless functions
