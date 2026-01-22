@@ -4,8 +4,9 @@ import { DesktopIcon } from "@/components/DesktopIcon";
 import { ContextMenu } from "@/components/ContextMenu";
 import { CreateFolderDialog } from "@/components/CreateFolderDialog";
 import { Dock } from "@/components/Dock";
-import { DocsApp, NotesApp, UtilitiesApp, VaultApp } from "@/components/AppWindow";
+import { DocsApp, NotesApp, UtilitiesApp, VaultApp, FolderWindow } from "@/components/AppWindow";
 import { Clippy } from "@/components/Clippy";
+import { StageManager } from "@/components/StageManager";
 import { useFolders, useDeleteFolder, useUpdateFolder } from "@/hooks/use-folders";
 import { Loader2 } from "lucide-react";
 
@@ -18,6 +19,17 @@ export default function Desktop({ onLogout }: { onLogout: () => void }) {
 
   // Open Apps State
   const [openApps, setOpenApps] = useState<Set<string>>(new Set());
+  const [minimizedApps, setMinimizedApps] = useState<Set<string>>(new Set());
+  const [focusedApp, setFocusedApp] = useState<string | null>(null);
+
+  // Open Folders State (for folders opened as windows)
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  const [minimizedFolders, setMinimizedFolders] = useState<Set<string>>(new Set());
+  const [focusedFolder, setFocusedFolder] = useState<string | null>(null);
+
+  // Z-index management for window stacking
+  const [zIndexCounter, setZIndexCounter] = useState(30);
+  const [windowZIndexes, setWindowZIndexes] = useState<Record<string, number>>({});
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -33,6 +45,12 @@ export default function Desktop({ onLogout }: { onLogout: () => void }) {
 
   const handleOpenApp = (appId: string) => {
     setOpenApps(prev => new Set(prev).add(appId));
+    setMinimizedApps(prev => {
+      const next = new Set(prev);
+      next.delete(appId);
+      return next;
+    });
+    handleFocusApp(appId);
   };
 
   const handleCloseApp = (appId: string) => {
@@ -41,6 +59,86 @@ export default function Desktop({ onLogout }: { onLogout: () => void }) {
       next.delete(appId);
       return next;
     });
+    setMinimizedApps(prev => {
+      const next = new Set(prev);
+      next.delete(appId);
+      return next;
+    });
+    if (focusedApp === appId) {
+      setFocusedApp(null);
+    }
+  };
+
+  const handleMinimizeApp = (appId: string) => {
+    setMinimizedApps(prev => new Set(prev).add(appId));
+    if (focusedApp === appId) {
+      setFocusedApp(null);
+    }
+  };
+
+  const handleRestoreApp = (appId: string) => {
+    setMinimizedApps(prev => {
+      const next = new Set(prev);
+      next.delete(appId);
+      return next;
+    });
+    handleFocusApp(appId);
+  };
+
+  const handleFocusApp = (appId: string) => {
+    setFocusedApp(appId);
+    setFocusedFolder(null);
+    setZIndexCounter(prev => prev + 1);
+    setWindowZIndexes(prev => ({ ...prev, [`app-${appId}`]: zIndexCounter + 1 }));
+  };
+
+  const handleOpenFolder = (folderId: string) => {
+    setOpenFolders(prev => new Set(prev).add(folderId));
+    setMinimizedFolders(prev => {
+      const next = new Set(prev);
+      next.delete(folderId);
+      return next;
+    });
+    handleFocusFolder(folderId);
+  };
+
+  const handleCloseFolder = (folderId: string) => {
+    setOpenFolders(prev => {
+      const next = new Set(prev);
+      next.delete(folderId);
+      return next;
+    });
+    setMinimizedFolders(prev => {
+      const next = new Set(prev);
+      next.delete(folderId);
+      return next;
+    });
+    if (focusedFolder === folderId) {
+      setFocusedFolder(null);
+    }
+  };
+
+  const handleMinimizeFolder = (folderId: string) => {
+    setMinimizedFolders(prev => new Set(prev).add(folderId));
+    if (focusedFolder === folderId) {
+      setFocusedFolder(null);
+    }
+  };
+
+  const handleRestoreFolder = (folderId: string) => {
+    setMinimizedFolders(prev => {
+      const next = new Set(prev);
+      next.delete(folderId);
+      return next;
+    });
+    handleFocusFolder(folderId);
+  };
+
+  const handleFocusFolder = (folderId: string) => {
+    setFocusedFolder(folderId);
+    setFocusedApp(null);
+    setZIndexCounter(prev => prev + 1);
+    setWindowZIndexes(prev => ({ ...prev, [`folder-${folderId}`]: zIndexCounter + 1 }));
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -124,6 +222,7 @@ export default function Desktop({ onLogout }: { onLogout: () => void }) {
               selected={selectedFolderId === folder.id}
               isRenaming={renamingFolderId === folder.id}
               onSelect={() => setSelectedFolderId(folder.id)}
+              onOpen={() => handleOpenFolder(folder.id)}
               onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
               onRenameSubmit={(newName) => handleRenameSubmit(folder.id, newName)}
               onRenameCancel={handleRenameCancel}
@@ -149,13 +248,79 @@ export default function Desktop({ onLogout }: { onLogout: () => void }) {
       />
 
       {/* App Windows */}
-      {openApps.has("docs") && <DocsApp onClose={() => handleCloseApp("docs")} />}
-      {openApps.has("notes") && <NotesApp onClose={() => handleCloseApp("notes")} />}
-      {openApps.has("utilities") && <UtilitiesApp onClose={() => handleCloseApp("utilities")} />}
-      {openApps.has("vault") && <VaultApp onClose={() => handleCloseApp("vault")} />}
+      {openApps.has("docs") && (
+        <DocsApp
+          onClose={() => handleCloseApp("docs")}
+          onMinimize={() => handleMinimizeApp("docs")}
+          onFocus={() => handleFocusApp("docs")}
+          isMinimized={minimizedApps.has("docs")}
+          isFocused={focusedApp === "docs"}
+          zIndex={windowZIndexes["app-docs"] || 30}
+        />
+      )}
+      {openApps.has("notes") && (
+        <NotesApp
+          onClose={() => handleCloseApp("notes")}
+          onMinimize={() => handleMinimizeApp("notes")}
+          onFocus={() => handleFocusApp("notes")}
+          isMinimized={minimizedApps.has("notes")}
+          isFocused={focusedApp === "notes"}
+          zIndex={windowZIndexes["app-notes"] || 30}
+        />
+      )}
+      {openApps.has("utilities") && (
+        <UtilitiesApp
+          onClose={() => handleCloseApp("utilities")}
+          onMinimize={() => handleMinimizeApp("utilities")}
+          onFocus={() => handleFocusApp("utilities")}
+          isMinimized={minimizedApps.has("utilities")}
+          isFocused={focusedApp === "utilities"}
+          zIndex={windowZIndexes["app-utilities"] || 30}
+        />
+      )}
+      {openApps.has("vault") && (
+        <VaultApp
+          onClose={() => handleCloseApp("vault")}
+          onMinimize={() => handleMinimizeApp("vault")}
+          onFocus={() => handleFocusApp("vault")}
+          isMinimized={minimizedApps.has("vault")}
+          isFocused={focusedApp === "vault"}
+          zIndex={windowZIndexes["app-vault"] || 30}
+        />
+      )}
+
+      {/* Folder Windows */}
+      {folders?.filter(folder => openFolders.has(folder.id)).map(folder => (
+        <FolderWindow
+          key={folder.id}
+          folderId={folder.id}
+          folderName={folder.name}
+          onClose={() => handleCloseFolder(folder.id)}
+          onMinimize={() => handleMinimizeFolder(folder.id)}
+          onFocus={() => handleFocusFolder(folder.id)}
+          isMinimized={minimizedFolders.has(folder.id)}
+          isFocused={focusedFolder === folder.id}
+          zIndex={windowZIndexes[`folder-${folder.id}`] || 30}
+        />
+      ))}
 
       {/* Clippy Assistant */}
       <Clippy />
+
+      {/* Stage Manager */}
+      <StageManager
+        openApps={openApps}
+        minimizedApps={minimizedApps}
+        focusedApp={focusedApp}
+        onRestoreApp={handleRestoreApp}
+        onFocusApp={handleFocusApp}
+        openFolders={openFolders}
+        minimizedFolders={minimizedFolders}
+        focusedFolder={focusedFolder}
+        folders={folders || []}
+        onRestoreFolder={handleRestoreFolder}
+        onFocusFolder={handleFocusFolder}
+      />
 
       {/* Dock */}
       <Dock onOpenApp={handleOpenApp} />

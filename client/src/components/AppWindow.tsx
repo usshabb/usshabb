@@ -1,38 +1,80 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { FileText, Upload, Trash2, Send, AtSign, MessageSquare, Loader2, Pencil, Check, X, Mail, Copy, Plus, Key, Eye, EyeOff } from "lucide-react";
+import { FileText, Upload, Trash2, Send, AtSign, MessageSquare, Loader2, Pencil, Check, X, Mail, Copy, Plus, Key, Eye, EyeOff, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { Document, DocMessage, MailingList, VaultItem } from "@shared/schema";
+import type { Document, DocMessage, MailingList, VaultItem, FolderItem } from "@shared/schema";
 import { useMailingLists, useCreateMailingList, useDeleteMailingList } from "@/hooks/use-mailing-lists";
 import { useVaultItems, useCreateVaultItem, useDeleteVaultItem } from "@/hooks/use-vault";
+import { useFolderItems, useCreateFileItem, useDeleteFolderItem, useUpdateFolderItem } from "@/hooks/use-folder-items";
+import { ContextMenu } from "@/components/ContextMenu";
+import { FolderItemIcon } from "@/components/FolderItemIcon";
+import { AddBookmarkDialog } from "@/components/AddBookmarkDialog";
+import { CreateNoteDialog } from "@/components/CreateNoteDialog";
+import { EditNoteDialog } from "@/components/EditNoteDialog";
 
 interface AppWindowProps {
   appId: string;
   title: string;
   onClose: () => void;
+  onMinimize?: () => void;
+  onFocus?: () => void;
+  isMinimized?: boolean;
+  isFocused?: boolean;
+  zIndex?: number;
   children?: React.ReactNode;
   width?: string;
   height?: string;
 }
 
-export function AppWindow({ appId, title, onClose, children, width = "600px", height = "500px" }: AppWindowProps) {
+interface AppComponentProps {
+  onClose: () => void;
+  onMinimize?: () => void;
+  onFocus?: () => void;
+  isMinimized?: boolean;
+  isFocused?: boolean;
+  zIndex?: number;
+}
+
+export function AppWindow({
+  appId,
+  title,
+  onClose,
+  onMinimize,
+  onFocus,
+  isMinimized = false,
+  isFocused = false,
+  zIndex = 30,
+  children,
+  width = "600px",
+  height = "500px"
+}: AppWindowProps) {
+  if (isMinimized) {
+    return null;
+  }
+
   return (
     <div
-      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden shadow-2xl z-30 win95-window"
-      style={{ width, height }}
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden shadow-2xl win95-window"
+      style={{ width, height, zIndex }}
       data-testid={`window-${appId}`}
+      onClick={onFocus}
     >
       <div className="win95-titlebar h-7">
         <span className="text-xs font-bold text-white">{title}</span>
         <div className="flex items-center gap-0.5">
           <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMinimize?.();
+            }}
             className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0"
             style={{ minHeight: '16px', padding: '0' }}
+            data-testid={`button-minimize-${appId}`}
           >
             _
           </button>
@@ -43,7 +85,10 @@ export function AppWindow({ appId, title, onClose, children, width = "600px", he
             □
           </button>
           <button
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             className="w-4 h-4 flex items-center justify-center bg-win95-gray text-black text-xs font-bold win95-button p-0"
             data-testid={`button-close-${appId}`}
             style={{ minHeight: '16px', padding: '0' }}
@@ -59,7 +104,7 @@ export function AppWindow({ appId, title, onClose, children, width = "600px", he
   );
 }
 
-export function DocsApp({ onClose }: { onClose: () => void }) {
+export function DocsApp({ onClose, onMinimize, onFocus, isMinimized, isFocused, zIndex }: AppComponentProps) {
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [message, setMessage] = useState("");
@@ -246,7 +291,18 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
   }, [documents, mentionQuery]);
 
   return (
-    <AppWindow appId="docs" title="Docs" onClose={onClose} width="1000px" height="650px">
+    <AppWindow
+      appId="docs"
+      title="Docs"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onFocus={onFocus}
+      isMinimized={isMinimized}
+      isFocused={isFocused}
+      zIndex={zIndex}
+      width="1000px"
+      height="650px"
+    >
       <div className="flex h-full relative">
         <div className="w-64 flex-shrink-0 flex flex-col bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200/50 dark:border-gray-700/50">
           <div className="p-3 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center gap-2">
@@ -533,9 +589,18 @@ export function DocsApp({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function NotesApp({ onClose }: { onClose: () => void }) {
+export function NotesApp({ onClose, onMinimize, onFocus, isMinimized, isFocused, zIndex }: AppComponentProps) {
   return (
-    <AppWindow appId="notes" title="Notes" onClose={onClose}>
+    <AppWindow
+      appId="notes"
+      title="Notes"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onFocus={onFocus}
+      isMinimized={isMinimized}
+      isFocused={isFocused}
+      zIndex={zIndex}
+    >
       <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6">
         <div className="w-16 h-16 rounded-2xl bg-yellow-100 flex items-center justify-center mb-4">
           <svg className="w-8 h-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -553,7 +618,7 @@ export function NotesApp({ onClose }: { onClose: () => void }) {
 
 type UtilityView = "mailing-lists";
 
-export function UtilitiesApp({ onClose }: { onClose: () => void }) {
+export function UtilitiesApp({ onClose, onMinimize, onFocus, isMinimized, isFocused, zIndex }: AppComponentProps) {
   const [selectedUtility, setSelectedUtility] = useState<UtilityView>("mailing-lists");
 
   const utilities: { id: UtilityView; icon: any; label: string }[] = [
@@ -561,7 +626,18 @@ export function UtilitiesApp({ onClose }: { onClose: () => void }) {
   ];
 
   return (
-    <AppWindow appId="utilities" title="Utilities" onClose={onClose} width="800px" height="600px">
+    <AppWindow
+      appId="utilities"
+      title="Utilities"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onFocus={onFocus}
+      isMinimized={isMinimized}
+      isFocused={isFocused}
+      zIndex={zIndex}
+      width="800px"
+      height="600px"
+    >
       <div className="flex h-full">
         <div className="w-48 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
           <ScrollArea className="h-full">
@@ -801,7 +877,7 @@ function MailingListsUtility() {
   );
 }
 
-export function VaultApp({ onClose }: { onClose: () => void }) {
+export function VaultApp({ onClose, onMinimize, onFocus, isMinimized, isFocused, zIndex }: AppComponentProps) {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [type, setType] = useState<"password" | "apikey" | "value">("password");
@@ -923,7 +999,18 @@ export function VaultApp({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <AppWindow appId="vault" title="Vault" onClose={onClose} width="700px" height="600px">
+    <AppWindow
+      appId="vault"
+      title="Vault"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onFocus={onFocus}
+      isMinimized={isMinimized}
+      isFocused={isFocused}
+      zIndex={zIndex}
+      width="700px"
+      height="600px"
+    >
       <div className="h-full flex flex-col">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Password Vault</h2>
@@ -1197,6 +1284,287 @@ export function VaultApp({ onClose }: { onClose: () => void }) {
           </div>
         </ScrollArea>
       </div>
+    </AppWindow>
+  );
+}
+
+export function FolderWindow({
+  folderId,
+  folderName,
+  onClose,
+  onMinimize,
+  onFocus,
+  isMinimized,
+  isFocused,
+  zIndex
+}: AppComponentProps & { folderId: string; folderName: string }) {
+  // Fetch folder items
+  const { data: items = [], isLoading } = useFolderItems(folderId || "");
+  const createFileMutation = useCreateFileItem(folderId || "");
+  const deleteMutation = useDeleteFolderItem(folderId || "");
+  const updateMutation = useUpdateFolderItem(folderId || "");
+
+  // State
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    targetType: 'folder-view' | 'folder-item';
+    itemId: string | null;
+  }>({ visible: false, x: 0, y: 0, targetType: 'folder-view', itemId: null });
+
+  // Dialog State
+  const [isAddBookmarkOpen, setIsAddBookmarkOpen] = useState(false);
+  const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<FolderItem | null>(null);
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (!folderId) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => {
+      createFileMutation.mutate({ file, x: 0, y: 0 });
+    });
+  };
+
+  // Context menu handlers
+  const handleBackgroundContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetType: 'folder-view',
+      itemId: null,
+    });
+  };
+
+  const handleItemContextMenu = (e: React.MouseEvent, itemId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetType: 'folder-item',
+      itemId,
+    });
+  };
+
+  // Item handlers
+  const handleItemDoubleClick = (item: FolderItem) => {
+    if (item.type === 'file' && item.fileUrl) {
+      window.open(item.fileUrl, '_blank');
+    } else if (item.type === 'bookmark' && item.url) {
+      window.open(item.url, '_blank');
+    } else if (item.type === 'note') {
+      setEditingNote(item);
+    }
+  };
+
+  const handleDeleteItem = () => {
+    if (contextMenu.itemId) {
+      deleteMutation.mutate(contextMenu.itemId);
+    }
+  };
+
+  const handleRenameItem = () => {
+    if (contextMenu.itemId) {
+      setRenamingItemId(contextMenu.itemId);
+    }
+  };
+
+  const handleRenameSubmit = (itemId: string, newName: string) => {
+    updateMutation.mutate(
+      { itemId, name: newName },
+      {
+        onSuccess: () => {
+          setRenamingItemId(null);
+        },
+        onError: () => {
+          setRenamingItemId(null);
+        }
+      }
+    );
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingItemId(null);
+  };
+
+  const handleViewClick = () => {
+    setSelectedItemId(null);
+    setRenamingItemId(null);
+    setContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
+  const handleUploadFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!folderId) return;
+
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      createFileMutation.mutate({ file, x: 0, y: 0 });
+    });
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <AppWindow
+      appId={`folder-${folderId}`}
+      title={folderName}
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onFocus={onFocus}
+      isMinimized={isMinimized}
+      isFocused={isFocused}
+      zIndex={zIndex}
+      width="800px"
+      height="600px"
+    >
+      <div className="h-full flex flex-col">
+        {/* Toolbar */}
+        <div className="h-10 bg-win95-gray border-b-2 border-b-white flex items-center px-2 shrink-0" style={{ borderBottom: '2px solid #ffffff', boxShadow: 'inset 0 -1px 0 #808080' }}>
+          <div className="relative hidden sm:block ml-auto">
+            <Search className="absolute left-2 top-1.5 w-3 h-3 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search"
+              className="win95-input pl-7 pr-2 py-0.5 text-xs w-40"
+            />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div
+          className="flex-1 overflow-y-auto bg-white relative"
+          onClick={handleViewClick}
+          onContextMenu={handleBackgroundContextMenu}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {isDraggingOver && (
+            <div className="absolute inset-0 bg-blue-100 bg-opacity-50 border-4 border-dashed border-blue-400 flex items-center justify-center z-10">
+              <p className="text-lg font-bold text-blue-600">Drop files here to upload</p>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500 text-sm">
+                This folder is empty. Right-click to add items or drag files here.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 grid grid-cols-[repeat(auto-fill,96px)] gap-2">
+              {items.map((item) => (
+                <FolderItemIcon
+                  key={item.id}
+                  item={item}
+                  selected={selectedItemId === item.id}
+                  isRenaming={renamingItemId === item.id}
+                  onSelect={() => setSelectedItemId(item.id)}
+                  onDoubleClick={() => handleItemDoubleClick(item)}
+                  onContextMenu={(e) => handleItemContextMenu(e, item.id)}
+                  onRenameSubmit={(newName) => handleRenameSubmit(item.id, newName)}
+                  onRenameCancel={handleRenameCancel}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Status Bar */}
+        <div className="h-6 bg-win95-gray border-t-2 border-t-white px-4 flex items-center text-xs text-black" style={{ borderTop: '2px solid #ffffff', boxShadow: 'inset 0 1px 0 #dfdfdf' }}>
+          {items.length} {items.length === 1 ? 'item' : 'items'}
+        </div>
+      </div>
+
+      {/* Context Menu */}
+      <ContextMenu
+        visible={contextMenu.visible}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        targetType={contextMenu.targetType}
+        onClose={() => setContextMenu(prev => ({ ...prev, visible: false }))}
+        onAddBookmark={() => setIsAddBookmarkOpen(true)}
+        onAddNote={() => setIsCreateNoteOpen(true)}
+        onUploadFile={handleUploadFile}
+        onOpen={() => {
+          const item = items.find(i => i.id === contextMenu.itemId);
+          if (item) handleItemDoubleClick(item);
+        }}
+        onRename={handleRenameItem}
+        onDelete={handleDeleteItem}
+      />
+
+      {/* Hidden file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+
+      {/* Dialogs */}
+      {folderId && (
+        <>
+          <AddBookmarkDialog
+            open={isAddBookmarkOpen}
+            onOpenChange={setIsAddBookmarkOpen}
+            folderId={folderId}
+          />
+          <CreateNoteDialog
+            open={isCreateNoteOpen}
+            onOpenChange={setIsCreateNoteOpen}
+            folderId={folderId}
+            onNoteCreated={(note) => setEditingNote(note)}
+          />
+          {editingNote && (
+            <EditNoteDialog
+              open={true}
+              onOpenChange={(open) => !open && setEditingNote(null)}
+              note={editingNote}
+              folderId={folderId}
+            />
+          )}
+        </>
+      )}
     </AppWindow>
   );
 }

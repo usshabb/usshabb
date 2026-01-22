@@ -1,5 +1,4 @@
 import { Folder, Check, X } from "lucide-react";
-import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ interface DesktopIconProps {
   selected?: boolean;
   isRenaming?: boolean;
   onSelect?: () => void;
+  onOpen?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   onRenameSubmit?: (newName: string) => void;
   onRenameCancel?: () => void;
@@ -24,12 +24,14 @@ export function DesktopIcon({
   selected,
   isRenaming,
   onSelect,
+  onOpen,
   onContextMenu,
   onRenameSubmit,
   onRenameCancel
 }: DesktopIconProps) {
   const [editValue, setEditValue] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [lastClickTime, setLastClickTime] = useState(0);
 
   useEffect(() => {
     if (isRenaming) {
@@ -56,14 +58,24 @@ export function DesktopIcon({
     }
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (!isRenaming) {
+      e.stopPropagation();
+      const now = Date.now();
+      if (now - lastClickTime < 500) {
+        // Double click
+        onOpen?.();
+      } else {
+        // Single click
+        onSelect?.();
+      }
+      setLastClickTime(now);
+    }
+  };
+
   const iconContent = (
     <div
-      onClick={(e) => {
-        if (!isRenaming) {
-          e.stopPropagation();
-          onSelect?.();
-        }
-      }}
+      onClick={handleClick}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -119,13 +131,5 @@ export function DesktopIcon({
     </div>
   );
 
-  if (isRenaming) {
-    return iconContent;
-  }
-
-  return (
-    <Link href={`/${name}`}>
-      {iconContent}
-    </Link>
-  );
+  return iconContent;
 }
